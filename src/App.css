@@ -1,0 +1,804 @@
+@import './themes.css';
+
+* {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+/* Allow text selection in input fields and text areas */
+input,
+textarea,
+[contenteditable="true"] {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--gradient);
+}
+
+.app {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    overflow: hidden;
+    color: var(--text-primary);
+    position: relative;
+}
+
+.folders-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.add-folder-header-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-app-region: no-drag;
+    position: relative;
+    z-index: 21;
+}
+
+.add-folder-header-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Folder Creation Popup */
+.folder-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.folder-popup {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 400px;
+    overflow: hidden;
+    animation: popupSlideIn 0.2s ease;
+}
+
+@keyframes popupSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.folder-popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.folder-popup-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.folder-popup-close {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 20px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.folder-popup-close:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.folder-popup-content {
+    padding: 20px;
+}
+
+.folder-popup-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    outline: none;
+    font-family: inherit;
+    margin-bottom: 16px;
+    box-sizing: border-box;
+}
+
+.folder-popup-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.folder-popup-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.folder-popup-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.folder-popup-cancel,
+.folder-popup-create {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.folder-popup-cancel {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.folder-popup-cancel:hover {
+    background: var(--bg-tertiary);
+}
+
+.folder-popup-create {
+    background: var(--gradient);
+    color: white;
+}
+
+.folder-popup-create:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.folder-popup-create:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Floating Action Button */
+.fab-add-todo {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: var(--gradient);
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    z-index: 100;
+}
+
+.fab-add-todo:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.fab-add-todo:active {
+    transform: scale(0.95);
+}
+
+/* Todo Creation Modal */
+.todo-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.todo-modal {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 500px;
+    overflow: visible;
+    animation: popupSlideIn 0.2s ease;
+    position: relative;
+    z-index: 1001;
+}
+
+.todo-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    overflow: visible;
+    position: relative;
+    z-index: 1;
+}
+
+.todo-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.todo-modal-close {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 20px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.todo-modal-close:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.todo-modal-content {
+    padding: 20px;
+    overflow: visible;
+    position: relative;
+}
+
+.todo-modal-content .input-row {
+    margin-bottom: 16px;
+}
+
+.todo-modal-content .input-options {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.todo-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.todo-modal-cancel,
+.todo-modal-create {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.todo-modal-cancel {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.todo-modal-cancel:hover {
+    background: var(--bg-tertiary);
+}
+
+.todo-modal-create {
+    background: var(--gradient);
+    color: white;
+}
+
+.todo-modal-create:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.todo-modal-create:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.titlebar {
+    display: flex;
+    align-items: center;
+    height: 48px;
+    background: var(--gradient);
+    color: #ffffff;
+    -webkit-app-region: drag;
+    user-select: none;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.macos-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    -webkit-app-region: no-drag;
+    padding: 0 8px;
+    flex-shrink: 0;
+    height: 48px;
+    position: relative;
+    z-index: 20;
+}
+
+.titlebar-search {
+    flex: 1;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-app-region: drag;
+    height: 48px;
+    position: relative;
+    z-index: 20;
+}
+
+.titlebar-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    -webkit-app-region: no-drag;
+    flex-shrink: 0;
+    height: 48px;
+    position: relative;
+    z-index: 20;
+}
+
+.clear-completed-header-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 0;
+    -webkit-app-region: no-drag;
+    position: relative;
+    z-index: 21;
+}
+
+.clear-completed-header-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.filter-toggle {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 0;
+    -webkit-app-region: no-drag;
+    position: relative;
+    z-index: 21;
+}
+
+.filter-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.settings-toggle {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 0;
+    -webkit-app-region: no-drag;
+    position: relative;
+    z-index: 21;
+}
+
+.settings-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+
+.window-controls {
+    display: flex;
+    -webkit-app-region: no-drag;
+}
+
+.control-btn {
+    width: 12px;
+    height: 12px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0;
+    position: relative;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+    z-index: 21;
+}
+
+.control-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: block;
+    transition: all 0.2s ease;
+}
+
+.control-btn.close {
+    background: #fa4439;
+}
+
+.control-btn.close .control-dot {
+    background: #fa4439;
+    opacity: 0;
+}
+
+.control-btn.close:hover .control-dot {
+    opacity: 1;
+    background: #e83e33;
+}
+
+.control-btn.minimize {
+    background: #fad20a;
+}
+
+.control-btn.minimize .control-dot {
+    background: #fad20a;
+    opacity: 0;
+}
+
+.control-btn.minimize:hover .control-dot {
+    opacity: 1;
+    background: #e0bd09;
+}
+
+.control-btn:active {
+    transform: scale(0.95);
+}
+
+.input-container {
+    padding: 12px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.input-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+
+.priority-select,
+.date-input {
+    min-width: 90px;
+}
+
+.date-input {
+    min-width: 140px;
+}
+
+.input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid var(--input-border);
+    border-radius: 12px;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    background: var(--input-bg);
+    color: var(--text-primary);
+}
+
+.input-textarea {
+    resize: none;
+    overflow-y: hidden;
+    min-height: 48px;
+    max-height: 200px;
+    line-height: 1.5;
+}
+
+.input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.add-btn {
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 12px;
+    background: var(--gradient);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.add-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.add-btn:active {
+    transform: scale(0.95);
+}
+
+.todo-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.todo-item-wrapper {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+    cursor: grab;
+}
+
+.todo-item-wrapper:active {
+    cursor: grabbing;
+}
+
+.todo-item-wrapper.dragging {
+    opacity: 0.5;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--text-tertiary);
+}
+
+.empty-state-add-btn {
+    width: 48px;
+    height: 48px;
+    border: 2px dashed var(--border-color);
+    background: transparent;
+    border-radius: 12px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 0;
+}
+
+.empty-state-add-btn:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    transform: scale(1.05);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.checkbox-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.checkbox {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    width: 0;
+    height: 0;
+}
+
+.checkmark {
+    width: 22px;
+    height: 22px;
+    border: 2px solid #d1d5db;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.checkbox:checked~.checkmark {
+    background: var(--gradient);
+    border-color: transparent;
+}
+
+.checkbox:checked~.checkmark::after {
+    content: "";
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    margin-bottom: 2px;
+}
+
+.checkbox-wrapper:hover .checkmark {
+    border-color: #667eea;
+}
+
+.checkbox:checked~.checkmark:hover {
+    border-color: transparent;
+}
+
+.delete-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    opacity: 0;
+}
+
+.todo-item:hover .delete-btn {
+    opacity: 1;
+}
+
+.delete-btn:hover {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.delete-btn:active {
+    transform: scale(0.9);
+}
+
+/* Custom scrollbar */
+.todo-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.todo-list::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+.todo-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.todo-list::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
