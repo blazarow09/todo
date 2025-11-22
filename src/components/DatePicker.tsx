@@ -8,9 +8,9 @@ type DatePickerProps = {
   className?: string;
 };
 
-export default function DatePicker({ 
-  value, 
-  onChange, 
+export default function DatePicker({
+  value,
+  onChange,
   placeholder = "Due date",
   className = ""
 }: DatePickerProps) {
@@ -36,7 +36,7 @@ export default function DatePicker({
           setCurrentMonth(new Date(year, month, 1));
         }
       }
-      
+
       // Parse time if present
       if (timePart) {
         const [hourStr, minuteStr] = timePart.split(':');
@@ -92,22 +92,22 @@ export default function DatePicker({
     const [datePart, timePart] = dateString.split('T');
     const dateParts = datePart.split('-');
     if (dateParts.length !== 3) return '';
-    
+
     const [yearStr, monthStr, dayStr] = dateParts;
     const year = parseInt(yearStr, 10);
     const month = parseInt(monthStr, 10) - 1; // Month is 0-indexed
     const day = parseInt(dayStr, 10);
-    
+
     // Validate parsed values
     if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
-    
+
     const date = new Date(year, month, day);
-    let formatted = date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
+    let formatted = date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
     });
-    
+
     // Add time if present (24-hour format)
     if (timePart) {
       const [hourStr, minuteStr] = timePart.split(':');
@@ -119,7 +119,7 @@ export default function DatePicker({
         formatted += `, ${hourFormatted}:${minuteFormatted}`;
       }
     }
-    
+
     return formatted;
   };
 
@@ -132,17 +132,17 @@ export default function DatePicker({
     const startingDayOfWeek = firstDay.getDay();
 
     const days: (number | null)[] = [];
-    
+
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
-    
+
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       days.push(day);
     }
-    
+
     return days;
   };
 
@@ -152,7 +152,7 @@ export default function DatePicker({
     // Format date string manually using local time to avoid timezone issues
     // Ensure we use the exact day number passed in, not from a Date object
     const datePart = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    
+
     // Use existing time if value has time, otherwise use current time
     let timeHours = hours;
     let timeMinutes = minutes;
@@ -173,7 +173,7 @@ export default function DatePicker({
       setHours(timeHours);
       setMinutes(timeMinutes);
     }
-    
+
     const timePart = `${String(timeHours).padStart(2, '0')}:${String(timeMinutes).padStart(2, '0')}`;
     onChange(`${datePart}T${timePart}`);
     // Don't close the picker so user can adjust time
@@ -203,7 +203,7 @@ export default function DatePicker({
   const handleTimeChange = (newHours: number, newMinutes: number) => {
     setHours(newHours);
     setMinutes(newMinutes);
-    
+
     // Update the value with new time if date is already selected
     if (value) {
       const [datePart] = value.split('T');
@@ -270,18 +270,18 @@ export default function DatePicker({
     // Handle both YYYY-MM-DD and potential ISO strings
     const dateParts = value.split('T')[0].split('-');
     if (dateParts.length !== 3) return false;
-    
+
     const [yearStr, monthStr, dayStr] = dateParts;
     const selectedYear = parseInt(yearStr, 10);
     const selectedMonth = parseInt(monthStr, 10) - 1; // Month is 0-indexed
     const selectedDay = parseInt(dayStr, 10);
-    
+
     // Validate parsed values
     if (isNaN(selectedYear) || isNaN(selectedMonth) || isNaN(selectedDay)) return false;
-    
+
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    
+
     return (
       day === selectedDay &&
       month === selectedMonth &&
@@ -302,10 +302,10 @@ export default function DatePicker({
           type="button"
         >
           <svg className="date-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path 
-              d="M12 2H4C2.9 2 2 2.9 2 4v10c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM4 4h8v2H4V4zm8 10H4V8h8v6z" 
-              stroke="currentColor" 
-              strokeWidth="1.2" 
+            <path
+              d="M12 2H4C2.9 2 2 2.9 2 4v10c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM4 4h8v2H4V4zm8 10H4V8h8v6z"
+              stroke="currentColor"
+              strokeWidth="1.2"
               fill="none"
             />
           </svg>
@@ -322,13 +322,13 @@ export default function DatePicker({
           <div className="calendar-header">
             <button className="nav-button" onClick={() => navigateMonth('prev')} type="button">
               <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                <path d="M7.5 9L4.5 6L7.5 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M7.5 9L4.5 6L7.5 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
             <div className="month-year">{monthName}</div>
             <button className="nav-button" onClick={() => navigateMonth('next')} type="button">
               <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                <path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           </div>
