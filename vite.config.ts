@@ -11,6 +11,16 @@ export default defineConfig({
   base: "./",
   build: {
     emptyOutDir: false, // Don't clean dist directory to avoid conflicts with electron-builder
+    // Production optimizations
+    minify: "esbuild", // Faster than terser
+    sourcemap: false, // Disable sourcemaps for faster builds
+    rollupOptions: {
+      output: {
+        manualChunks: undefined, // Let Vite handle chunking automatically
+      },
+    },
+    // Increase chunk size warning limit to reduce warnings
+    chunkSizeWarningLimit: 1000,
   },
 });
 

@@ -28,7 +28,7 @@ export default function App() {
     // Optimize: Use try-catch only around JSON.parse, check for null first
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    
+
     try {
       const loaded = JSON.parse(raw);
       // Use for loop instead of map for better performance with large arrays
@@ -79,7 +79,7 @@ export default function App() {
   const [filter, setFilter] = useState<FilterType>('active');
   const [selectedLabel, setSelectedLabel] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Initialize theme from localStorage immediately to prevent overwriting on mount
   const getInitialTheme = (): Theme => {
     if (typeof window !== 'undefined') {
@@ -91,7 +91,7 @@ export default function App() {
     return 'light';
   };
   const [theme, setTheme] = useState<Theme>(getInitialTheme());
-  
+
   const [alwaysOnTop, setAlwaysOnTop] = useState<boolean>(() => {
     const saved = localStorage.getItem(ALWAYS_ON_TOP_KEY);
     return saved !== null ? saved === 'true' : true;
@@ -110,17 +110,17 @@ export default function App() {
     }
     return 0.3;
   });
-  
+
   const [showSettings, setShowSettings] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
-  
+
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() => {
     const saved = localStorage.getItem(SELECTED_FOLDER_KEY);
     return saved === 'uncategorized' ? null : saved;
   });
-  
+
   const [showFolderPopup, setShowFolderPopup] = useState(false);
   const [showTodoModal, setShowTodoModal] = useState(false);
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
@@ -491,21 +491,21 @@ export default function App() {
 
   const confirmDeleteFolder = useCallback(() => {
     if (!folderToDelete) return;
-    
+
     // Move todos to Uncategorized
-    const newTodos = todos.map(t => 
+    const newTodos = todos.map(t =>
       t.folderId === folderToDelete.id ? { ...t, folderId: null } : t
     );
-    
+
     // Only update todos if there were changes
     if (JSON.stringify(newTodos) !== JSON.stringify(todos)) {
       setTodos(newTodos);
       addToHistory(newTodos, 'update');
     }
-    
+
     // Delete folder
     setFolders(prev => prev.filter(f => f.id !== folderToDelete.id));
-    
+
     setFolderToDelete(null);
   }, [folderToDelete, todos, addToHistory]);
 
@@ -599,9 +599,9 @@ export default function App() {
   const completedCount = todos.filter((t) => t.done && !t.isArchived).length;
 
   const hasBackground = backgroundImage || backgroundColor;
-  
+
   return (
-    <div 
+    <div
       className="app"
       style={{
         backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
@@ -614,7 +614,7 @@ export default function App() {
       } as React.CSSProperties}
     >
       {hasBackground && (
-        <div 
+        <div
           className="background-overlay"
           style={{ opacity: overlayOpacity }}
         />
@@ -699,8 +699,8 @@ export default function App() {
                 <button className="folder-popup-cancel" onClick={() => setFolderToDelete(null)}>
                   Cancel
                 </button>
-                <button 
-                  className="folder-popup-delete" 
+                <button
+                  className="folder-popup-delete"
                   onClick={confirmDeleteFolder}
                 >
                   Delete
