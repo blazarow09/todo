@@ -1,15 +1,5 @@
 import { Todo } from '../types';
 
-declare global {
-  interface Window {
-    electronAPI?: {
-      scheduleNotification: (id: string, title: string, body: string, timestamp: number) => Promise<{ success: boolean; error?: string }>;
-      cancelNotification: (id: string) => Promise<{ success: boolean; error?: string }>;
-      cancelAllNotifications: () => Promise<{ success: boolean; error?: string }>;
-    };
-  }
-}
-
 export function calculateNotificationTime(todo: Todo): number | null {
   if (!todo.dueDate || !todo.notificationEnabled || !todo.notificationType) {
     return null;
