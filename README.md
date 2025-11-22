@@ -43,31 +43,31 @@ That's it! No Rust, no Windows SDK, no complicated setup.
 
 ## Building
 
-### Portable Version (No Installation Required) ⭐ Recommended
+### Installer Version ⭐ Recommended
 
-To build a portable version that can be run directly without installation:
+To build the standard NSIS installer (supports seamless auto-updates):
 
 ```bash
 pnpm electron:build
 ```
 
-This creates a portable `.exe` file in the `dist` folder that you can run directly. Just double-click the `.exe` file to start the app - no installation needed! You can move this file anywhere and it will work.
+This generates a `setup.exe` inside the `release` folder. Run it once to install the app (Start Menu entry, desktop shortcut, uninstaller, etc.). Future updates are downloaded and applied automatically.
 
-### Installer Version
+### Portable Version (Optional)
 
-To build an installer version:
+Need a no-install build you can move anywhere?
 
 ```bash
-pnpm electron:build:installer
+pnpm electron:build:portable
 ```
 
-This creates a setup installer that will install the app on your system.
+This produces a standalone `.exe` in the `release` folder. Portable builds still work, but they require manual steps for updates—use the installer whenever possible for the best experience.
 
 ### Build Output
 
-After building, you'll find the executable in the `dist` folder:
-- **Portable**: `My Todo-0.1.0-portable.exe` - Run this directly, no installation needed
-- **Installer**: `My Todo-0.1.0-setup.exe` - Run this to install the app
+After building, you'll find the executable(s) in the `release` folder:
+- **Installer (default)**: `My Tasks-<version>-setup.exe` – run once to install/update
+- **Portable (optional)**: `My Tasks-<version>-portable.exe` – manual/legacy distribution
 
 ### Adding a Custom Icon
 

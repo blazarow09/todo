@@ -316,6 +316,10 @@ export default function Settings({
                   )}
                 </div>
               </div>
+
+              <div className="settings-version">
+                <span>Version {__APP_VERSION__}</span>
+              </div>
             </>
           ) : (
             <div className="archived-list-container">

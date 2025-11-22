@@ -92,7 +92,7 @@ If you prefer to publish manually or test locally:
    This will:
    - Build your app
    - Create a GitHub Release
-   - Upload the portable exe
+   - Upload the NSIS installer (`setup.exe`)
    - Make it available for auto-updates
 
 ### On Windows (Command Prompt):
@@ -113,8 +113,8 @@ pnpm run electron:publish
 
 1. **App checks for updates** on startup (after 3 seconds)
 2. **electron-updater** queries GitHub Releases API
-3. **If update found**, it downloads the new portable exe
-4. **When user accepts**, it replaces the old exe and restarts
+3. **If update found**, it downloads the new installer package
+4. **When user accepts**, the app restarts and installs the update automatically
 
 ## Troubleshooting
 
