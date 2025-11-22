@@ -473,19 +473,6 @@ const createTray = () => {
     {
       label: "Check for updates...",
       click: async () => {
-        // TEST: Show immediate dialog to verify click handler works
-        try {
-          await dialog.showMessageBox(mainWindow || undefined, {
-            type: "info",
-            title: "Update Check Started",
-            message: "Checking for updates...",
-            detail: `Click handler works!\n\nApp is packaged: ${app.isPackaged}\nCurrent version: ${app.getVersion()}`,
-            buttons: ["OK"],
-          });
-        } catch (e) {
-          console.error("Dialog failed:", e);
-        }
-        
         // Show window first so user can see feedback
         if (mainWindow) {
           if (!mainWindow.isVisible()) {
@@ -494,23 +481,12 @@ const createTray = () => {
           mainWindow.focus();
         }
         
-        // Always show immediate feedback
         console.log("=== Update Check Clicked ===");
         console.log("App is packaged:", app.isPackaged);
         console.log("Current version:", app.getVersion());
         
         if (app.isPackaged) {
           try {
-            // Show immediate feedback dialog (await it to ensure it shows)
-            console.log("Showing checking dialog...");
-            await dialog.showMessageBox(mainWindow || undefined, {
-              type: "info",
-              title: "Checking for Updates",
-              message: "Checking for updates...",
-              detail: `Current version: ${app.getVersion()}\n\nPlease wait while we check GitHub for updates.`,
-              buttons: ["OK"],
-            });
-          
             console.log("Checking for updates from tray menu...");
             updateStatus.checking = true;
             updateStatus.error = null;
@@ -538,7 +514,7 @@ const createTray = () => {
               mainWindow.webContents.send("update-status", { ...updateStatus });
             }
             
-            // Show error dialog
+            // Only show error dialog for manual checks (user-initiated)
             dialog.showErrorBox(
               "Update Check Failed",
               `Failed to check for updates:\n\n${error.message}\n\nPlease check:\n- Internet connection\n- GitHub repository configuration\n- Version format in package.json`
@@ -1055,14 +1031,8 @@ autoUpdater.on("update-not-available", (info) => {
   updateStatus.info = info;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("update-status", { ...updateStatus });
-    // Show dialog to inform user
-    dialog.showMessageBox(mainWindow, {
-      type: "info",
-      title: "No Updates Available",
-      message: "You're using the latest version!",
-      detail: `Current version: ${app.getVersion()}\nLatest version: ${info?.version || app.getVersion()}\n\nNo updates are available at this time.`,
-      buttons: ["OK"],
-    });
+    // Don't show dialog - user doesn't need to be notified they're up to date
+    // The status is sent to renderer if UI needs to show it
   }
 });
 
@@ -1074,11 +1044,8 @@ autoUpdater.on("error", (err) => {
   updateStatus.checking = false;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("update-status", { ...updateStatus });
-    // Also show error dialog for visibility
-    dialog.showErrorBox(
-      "Update Check Error",
-      `Failed to check for updates:\n\n${err.message || "Unknown error"}\n\nPlease check:\n- Internet connection\n- GitHub repository configuration\n- Version format in package.json`
-    );
+    // Don't show error dialog for automatic background checks
+    // Errors are logged and sent to renderer - only show dialogs for user-initiated actions
   }
 });
 
