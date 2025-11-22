@@ -232,12 +232,12 @@ export default function DatePicker({
   };
 
   const incrementMinutes = () => {
-    const newMinutes = (minutes + 15) % 60;
+    const newMinutes = (minutes + 1) % 60;
     handleTimeChange(hours, newMinutes);
   };
 
   const decrementMinutes = () => {
-    const newMinutes = (minutes - 15 + 60) % 60;
+    const newMinutes = (minutes - 1 + 60) % 60;
     handleTimeChange(hours, newMinutes);
   };
 
@@ -371,6 +371,7 @@ export default function DatePicker({
                   }}
                   min="0"
                   max="23"
+                  step="1"
                 />
                 <button className="time-arrow" onClick={decrementHours} type="button">▼</button>
               </div>
@@ -389,6 +390,7 @@ export default function DatePicker({
                   }}
                   min="0"
                   max="59"
+                  step="1"
                 />
                 <button className="time-arrow" onClick={decrementMinutes} type="button">▼</button>
               </div>

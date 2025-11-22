@@ -3,6 +3,13 @@ const { autoUpdater } = require("electron-updater");
 const path = require("path");
 const fs = require("fs");
 
+// Set app name for notifications (MUST be set before app is ready)
+app.setName("My Tasks");
+// Set app user model ID for Windows notifications
+if (process.platform === 'win32') {
+  app.setAppUserModelId("com.todo.widget");
+}
+
 let mainWindow = null;
 let splashWindow = null;
 let tray = null;
@@ -243,7 +250,7 @@ const createWindow = async () => {
   // Default window bounds (on primary display)
   const defaultBounds = {
     width: 570,
-    height: 700,
+    height: 930,
     x: primaryDisplay.workArea.x + primaryDisplay.workArea.width - 590,
     y: primaryDisplay.workArea.y + 20,
   };
@@ -261,9 +268,9 @@ const createWindow = async () => {
       
       bounds = {
         width: Math.max(570, Math.min(savedState.width || defaultBounds.width, workArea.width)),
-        height: Math.max(700, Math.min(savedState.height || defaultBounds.height, workArea.height)),
+        height: Math.max(930, Math.min(savedState.height || defaultBounds.height, workArea.height)),
         x: Math.max(workArea.x, Math.min(savedState.x, workArea.x + workArea.width - 570)),
-        y: Math.max(workArea.y, Math.min(savedState.y, workArea.y + workArea.height - 700)),
+        y: Math.max(workArea.y, Math.min(savedState.y, workArea.y + workArea.height - 930)),
       };
     } else {
       // Saved position is not on any available display, use default on primary
@@ -286,7 +293,7 @@ const createWindow = async () => {
     x: bounds.x,
     y: bounds.y,
     minWidth: 570,
-    minHeight: 700,
+    minHeight: 930,
     resizable: true,
     frame: false,
     alwaysOnTop: alwaysOnTop,
@@ -886,9 +893,6 @@ ipcMain.handle("migrate-from-localstorage", async (event, { todos, folders, them
     return { success: false, error: error.message };
   }
 });
-
-// Set app name for notifications (must be set before app is ready)
-app.setName("My Tasks");
 
 // Performance optimizations
 app.commandLine.appendSwitch('disable-background-timer-throttling');

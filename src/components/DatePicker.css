@@ -12,17 +12,17 @@
 
 .date-picker-button {
   width: 100%;
-  padding: 6px 12px;
-  padding-right: 32px; /* Make room for clear button */
+  padding: 4px 8px;
+  padding-right: 28px; /* Make room for clear button */
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--input-bg);
   color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   transition: all 0.2s;
   font-family: inherit;
   min-width: 0;
@@ -98,7 +98,7 @@
   border-radius: 8px;
   box-shadow: 0 8px 24px var(--shadow);
   z-index: 1000;
-  padding: 12px;
+  padding: 8px;
   width: 280px;
   animation: slideDown 0.2s ease;
 }
@@ -112,16 +112,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .nav-button {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border: none;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -144,7 +144,7 @@
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .day-header {
@@ -159,7 +159,7 @@
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .calendar-day {
@@ -169,13 +169,13 @@
   color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s;
   padding: 0;
-  min-height: 28px;
+  min-height: 24px;
 }
 
 .calendar-day:hover:not(.empty) {
@@ -204,17 +204,17 @@
 }
 
 .time-picker {
-  padding: 10px 0;
+  padding: 6px 0;
   border-top: 1px solid var(--border-color);
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .time-label {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   text-align: center;
 }
 
@@ -222,7 +222,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .time-input-group {
@@ -233,10 +233,10 @@
 }
 
 .time-input {
-  width: 50px;
-  padding: 4px 6px;
+  width: 48px;
+  padding: 3px 4px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--input-bg);
   color: var(--text-primary);
   font-size: 14px;
@@ -263,12 +263,12 @@
 }
 
 .time-arrow {
-  width: 24px;
-  height: 18px;
+  width: 22px;
+  height: 16px;
   border: none;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -288,21 +288,21 @@
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
-  padding-bottom: 8px;
+  padding-bottom: 6px;
 }
 
 .calendar-footer {
   display: flex;
   justify-content: space-between;
   gap: 6px;
-  padding-top: 8px;
+  padding-top: 4px;
 }
 
 .footer-btn {
   flex: 1;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 12px;
