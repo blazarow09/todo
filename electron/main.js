@@ -11,6 +11,24 @@ let tray = null;
 autoUpdater.autoDownload = false; // Don't auto-download, let user choose
 autoUpdater.autoInstallOnAppQuit = true; // Auto-install on app quit after download
 
+// Enable logging for debugging (optional - use console if electron-log not available)
+try {
+  const electronLog = require("electron-log");
+  autoUpdater.logger = electronLog;
+  autoUpdater.logger.transports.file.level = "info";
+  autoUpdater.logger.transports.console.level = "debug";
+  console.log("electron-log enabled for auto-updater");
+} catch (e) {
+  // electron-log not installed, use console.log
+  console.log("electron-log not available, using console.log for updates");
+  autoUpdater.logger = {
+    info: (...args) => console.log("[UPDATE]", ...args),
+    warn: (...args) => console.warn("[UPDATE]", ...args),
+    error: (...args) => console.error("[UPDATE]", ...args),
+    debug: (...args) => console.log("[UPDATE DEBUG]", ...args)
+  };
+}
+
 // Update status tracking
 let updateStatus = {
   available: false,
@@ -19,6 +37,11 @@ let updateStatus = {
   error: null,
   info: null
 };
+
+// Log current app version
+console.log("=== Auto-Update Configuration ===");
+console.log("App version:", app.getVersion());
+console.log("App is packaged:", app.isPackaged);
 
 // Window state file path
 const getWindowStatePath = () => {
@@ -240,6 +263,17 @@ const createWindow = async () => {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
 
+  // Add keyboard shortcut to toggle DevTools (F12 or Ctrl+Shift+I)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+      if (mainWindow.webContents.isDevToolsOpened()) {
+        mainWindow.webContents.closeDevTools();
+      } else {
+        mainWindow.webContents.openDevTools();
+      }
+    }
+  });
+
   // Save window state on move/resize
   let saveStateTimeout;
   const debouncedSaveState = () => {
@@ -340,6 +374,22 @@ const createTray = () => {
       },
     },
     { type: "separator" },
+    {
+      label: "Open Developer Tools",
+      click: () => {
+        if (mainWindow) {
+          if (!mainWindow.isVisible()) {
+            mainWindow.show();
+          }
+          mainWindow.focus();
+          if (mainWindow.webContents.isDevToolsOpened()) {
+            mainWindow.webContents.closeDevTools();
+          } else {
+            mainWindow.webContents.openDevTools();
+          }
+        }
+      },
+    },
     {
       label: "Check for updates...",
       click: async () => {
@@ -514,14 +564,31 @@ ipcMain.handle("open-external", async (event, url) => {
 // Auto-update handlers
 ipcMain.handle("check-for-updates", async () => {
   try {
+    console.log("Manual update check initiated");
+    console.log("Current version:", app.getVersion());
     updateStatus.checking = true;
     updateStatus.error = null;
-    await autoUpdater.checkForUpdates();
+    updateStatus.available = false;
+    
+    // Send initial status
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update-status", { ...updateStatus });
+    }
+    
+    const result = await autoUpdater.checkForUpdates();
+    console.log("Update check result:", result);
     return { success: true };
   } catch (error) {
     updateStatus.checking = false;
     updateStatus.error = error.message;
     console.error("Failed to check for updates:", error);
+    console.error("Error details:", JSON.stringify(error, null, 2));
+    
+    // Send error status
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update-status", { ...updateStatus });
+    }
+    
     return { success: false, error: error.message };
   }
 });
@@ -644,8 +711,15 @@ if (!gotTheLock) {
     if (app.isPackaged) {
       // Wait a bit before checking for updates to not slow down app startup
       setTimeout(() => {
+        console.log("Starting automatic update check...");
+        console.log("Current app version:", app.getVersion());
         autoUpdater.checkForUpdates().catch(err => {
           console.error("Auto-update check failed:", err);
+          updateStatus.error = err.message;
+          updateStatus.checking = false;
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send("update-status", { ...updateStatus });
+          }
         });
       }, 3000);
     }
@@ -685,16 +759,41 @@ autoUpdater.on("checking-for-update", () => {
 });
 
 autoUpdater.on("update-available", (info) => {
-  console.log("Update available:", info.version);
+  console.log("=== Update Available! ===");
+  console.log("Current app version:", app.getVersion());
+  console.log("New version available:", info.version);
+  console.log("Update info:", JSON.stringify(info, null, 2));
   updateStatus.available = true;
   updateStatus.checking = false;
   updateStatus.info = info;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("update-status", { ...updateStatus });
+    // Show notification dialog
+    dialog.showMessageBox(mainWindow, {
+      type: "info",
+      title: "Update Available",
+      message: `Version ${info.version} is available!`,
+      detail: `Current version: ${app.getVersion()}\nNew version: ${info.version}\n\nWould you like to download it now?`,
+      buttons: ["Download", "Later"],
+      defaultId: 0,
+      cancelId: 1
+    }).then((result) => {
+      if (result.response === 0) {
+        // User wants to download
+        autoUpdater.downloadUpdate().catch(err => {
+          console.error("Failed to download update:", err);
+          dialog.showErrorBox("Download Failed", `Failed to download update: ${err.message}`);
+        });
+      }
+    });
   }
 });
 
 autoUpdater.on("update-not-available", (info) => {
+  console.log("=== Update Check Result ===");
+  console.log("Current app version:", app.getVersion());
+  console.log("Latest release version:", info?.version || "unknown");
+  console.log("Update info:", JSON.stringify(info, null, 2));
   console.log("Update not available. Current version is latest.");
   updateStatus.available = false;
   updateStatus.checking = false;
@@ -706,10 +805,17 @@ autoUpdater.on("update-not-available", (info) => {
 
 autoUpdater.on("error", (err) => {
   console.error("Error in auto-updater:", err);
-  updateStatus.error = err.message;
+  console.error("Error stack:", err.stack);
+  console.error("Error details:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+  updateStatus.error = err.message || "Unknown error occurred";
   updateStatus.checking = false;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("update-status", { ...updateStatus });
+    // Also show error dialog for visibility
+    dialog.showErrorBox(
+      "Update Check Error",
+      `Failed to check for updates:\n\n${err.message || "Unknown error"}\n\nPlease check:\n- Internet connection\n- GitHub repository configuration\n- Version format in package.json`
+    );
   }
 });
 

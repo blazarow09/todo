@@ -18,7 +18,6 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
   const [editText, setEditText] = useState(todo.text);
   const [showNotes, setShowNotes] = useState(false);
   const [editNotes, setEditNotes] = useState(todo.notes || '');
-  const [showAttachments, setShowAttachments] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -44,15 +43,15 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    
+
     const items = e.dataTransfer.items;
     const files: File[] = [];
     let urlProcessed = false;
-    
+
     // Process dropped items
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+
       if (item.kind === 'file') {
         const file = item.getAsFile();
         if (file && file.type.startsWith('image/')) {
@@ -77,7 +76,7 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
         }
       }
     }
-    
+
     // Process files
     if (files.length > 0) {
       for (const file of files) {
@@ -103,10 +102,10 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const hasImage = Array.from(e.dataTransfer.items).some(item => 
+    const hasImage = Array.from(e.dataTransfer.items).some(item =>
       item.kind === 'file' && item.type.startsWith('image/')
     ) || e.dataTransfer.types.includes('text/uri-list');
-    
+
     if (hasImage) {
       e.dataTransfer.dropEffect = 'copy';
       setIsDragOver(true);
@@ -118,10 +117,10 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const hasImage = Array.from(e.dataTransfer.items).some(item => 
+    const hasImage = Array.from(e.dataTransfer.items).some(item =>
       item.kind === 'file' && item.type.startsWith('image/')
     ) || e.dataTransfer.types.includes('text/uri-list');
-    
+
     if (hasImage) {
       setIsDragOver(true);
     }
@@ -138,8 +137,8 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
 
   const handleRemoveAttachment = (attachmentId: string) => {
     const currentAttachments = todo.attachments || [];
-    onUpdate(todo.id, { 
-      attachments: currentAttachments.filter(a => a.id !== attachmentId) 
+    onUpdate(todo.id, {
+      attachments: currentAttachments.filter(a => a.id !== attachmentId)
     });
   };
 
@@ -161,7 +160,7 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Use Electron API if available, otherwise use window.open
     if ((window as any).electronAPI?.openExternal) {
       (window as any).electronAPI.openExternal(url);
@@ -174,7 +173,7 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
     // URL regex pattern - matches http://, https://, and www.
     const urlRegex = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
     const parts: (string | JSX.Element)[] = [];
-    
+
     // First, find all URLs
     const urlMatches: Array<{ index: number; url: string; fullUrl: string }> = [];
     const urlRegexCopy = new RegExp(urlRegex);
@@ -221,11 +220,11 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
         const overlapsWithUrl = urlMatches.some(urlMatch => {
           const urlStart = urlMatch.index;
           const urlEnd = urlStart + urlMatch.url.length;
-          return (queryStart >= urlStart && queryStart < urlEnd) || 
-                 (queryEnd > urlStart && queryEnd <= urlEnd) ||
-                 (queryStart <= urlStart && queryEnd >= urlEnd);
+          return (queryStart >= urlStart && queryStart < urlEnd) ||
+            (queryEnd > urlStart && queryEnd <= urlEnd) ||
+            (queryStart <= urlStart && queryEnd >= urlEnd);
         });
-        
+
         if (!overlapsWithUrl) {
           allMatches.push({
             index: queryMatch.index,
@@ -315,7 +314,7 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
   }
 
   return (
-    <div 
+    <div
       className={`todo-item ${todo.done ? 'done' : ''} ${isDragOver ? 'drag-over' : ''}`}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -359,14 +358,14 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
         {todo.attachments && todo.attachments.length > 0 && (
           <div className="attachments-grid">
             {todo.attachments.map(att => (
-              <div 
-                key={att.id} 
-                className="attachment-tile" 
+              <div
+                key={att.id}
+                className="attachment-tile"
                 onClick={() => setLightboxUrl(att.url)}
               >
                 <img src={att.url} alt={att.name || 'Attachment'} loading="lazy" />
-                <button 
-                  className="attachment-remove" 
+                <button
+                  className="attachment-remove"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemoveAttachment(att.id);
@@ -391,7 +390,7 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
           </svg>
         </button>
       </div>
-      
+
       {lightboxUrl && createPortal(
         <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>
           <div className="lightbox-content" onClick={e => e.stopPropagation()}>
