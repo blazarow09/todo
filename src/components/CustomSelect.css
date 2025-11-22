@@ -1,6 +1,7 @@
 .custom-select {
   position: relative;
   min-width: 100px;
+  overflow: visible;
 }
 
 .select-button {
@@ -68,6 +69,9 @@
   z-index: 2000;
   max-height: 200px;
   overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
   animation: slideDown 0.2s ease;
 }
 
@@ -94,6 +98,8 @@
   cursor: pointer;
   transition: background 0.15s;
   font-family: inherit;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .select-option:hover {

@@ -371,6 +371,7 @@ body {
     gap: 6px;
     flex: 1;
     min-width: 0;
+    overflow: visible;
 }
 
 .input-option-group.priority-group {
@@ -384,8 +385,10 @@ body {
 }
 
 .input-option-group.date-group {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     min-width: 0;
+    max-width: 100%;
+    overflow: visible;
 }
 
 .date-row {
@@ -397,12 +400,16 @@ body {
     flex-direction: row;
     gap: 12px;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
 }
 
 .date-input-row .date-input {
     flex: 0 1 auto;
     min-width: 140px;
+    max-width: 220px;
 }
 
 .input-option-group.folder-group {
@@ -415,9 +422,11 @@ body {
     flex-direction: row;
     gap: 8px;
     align-items: center;
-    flex-wrap: wrap;
-    flex: 1;
+    flex-wrap: nowrap;
+    flex: 0 1 auto;
     min-width: 0;
+    white-space: nowrap;
+    overflow: visible;
 }
 
 .notification-checkbox-label {
@@ -442,6 +451,7 @@ body {
 .notification-type-select,
 .notification-duration-select {
     min-width: 100px;
+    max-width: 120px;
     flex-shrink: 0;
 }
 

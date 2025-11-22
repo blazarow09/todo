@@ -801,6 +801,9 @@ ipcMain.handle("set-launch-at-startup", async (event, value) => {
   return true;
 });
 
+// Set app name for notifications (must be set before app is ready)
+app.setName("My Tasks");
+
 // Performance optimizations
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');

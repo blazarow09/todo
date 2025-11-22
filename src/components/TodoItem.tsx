@@ -348,7 +348,43 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
           )}
           {todo.dueDate && (
             <span className={`due-date ${isOverdue ? 'overdue' : ''}`}>
-              {new Date(todo.dueDate).toLocaleDateString()}
+              {(() => {
+                // Parse date string as local time (YYYY-MM-DD or YYYY-MM-DDTHH:mm format)
+                const [datePart, timePart] = todo.dueDate.split('T');
+                const [yearStr, monthStr, dayStr] = datePart.split('-');
+                const year = parseInt(yearStr, 10);
+                const month = parseInt(monthStr, 10) - 1; // Month is 0-indexed
+                const day = parseInt(dayStr, 10);
+
+                let hour = 0;
+                let minute = 0;
+                if (timePart) {
+                  const [hourStr, minuteStr] = timePart.split(':');
+                  hour = parseInt(hourStr, 10) || 0;
+                  minute = parseInt(minuteStr, 10) || 0;
+                }
+
+                const date = new Date(year, month, day, hour, minute);
+
+                // Format date with time if time is present
+                if (timePart) {
+                  return date.toLocaleDateString('en-US', {
+                    month: 'numeric',
+                    day: 'numeric',
+                    year: 'numeric'
+                  }) + ', ' + date.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                  });
+                } else {
+                  return date.toLocaleDateString('en-US', {
+                    month: 'numeric',
+                    day: 'numeric',
+                    year: 'numeric'
+                  });
+                }
+              })()}
             </span>
           )}
         </div>
