@@ -38,10 +38,32 @@ let updateStatus = {
   info: null
 };
 
-// Log current app version
+// Log current app version and configuration
 console.log("=== Auto-Update Configuration ===");
 console.log("App version:", app.getVersion());
 console.log("App is packaged:", app.isPackaged);
+console.log("Auto-download:", autoUpdater.autoDownload);
+console.log("Auto-install on quit:", autoUpdater.autoInstallOnAppQuit);
+
+// Set update server URL explicitly (electron-updater should auto-detect from package.json)
+// But let's verify it's configured correctly
+if (app.isPackaged) {
+  try {
+    const pkg = require(path.join(__dirname, "../package.json"));
+    const publishConfig = pkg.build?.publish;
+    if (publishConfig) {
+      console.log("Publish configuration:", JSON.stringify(publishConfig, null, 2));
+      if (publishConfig.provider === "github") {
+        const feedUrl = `https://github.com/${publishConfig.owner}/${publishConfig.repo}/releases/latest`;
+        console.log("GitHub feed URL:", feedUrl);
+      }
+    } else {
+      console.warn("WARNING: No publish configuration found in package.json!");
+    }
+  } catch (e) {
+    console.error("Failed to read package.json:", e);
+  }
+}
 
 // Window state file path
 const getWindowStatePath = () => {
@@ -393,6 +415,19 @@ const createTray = () => {
     {
       label: "Check for updates...",
       click: async () => {
+        // TEST: Show immediate dialog to verify click handler works
+        try {
+          await dialog.showMessageBox(mainWindow || undefined, {
+            type: "info",
+            title: "Update Check Started",
+            message: "Checking for updates...",
+            detail: `Click handler works!\n\nApp is packaged: ${app.isPackaged}\nCurrent version: ${app.getVersion()}`,
+            buttons: ["OK"],
+          });
+        } catch (e) {
+          console.error("Dialog failed:", e);
+        }
+        
         // Show window first so user can see feedback
         if (mainWindow) {
           if (!mainWindow.isVisible()) {
@@ -401,8 +436,23 @@ const createTray = () => {
           mainWindow.focus();
         }
         
+        // Always show immediate feedback
+        console.log("=== Update Check Clicked ===");
+        console.log("App is packaged:", app.isPackaged);
+        console.log("Current version:", app.getVersion());
+        
         if (app.isPackaged) {
           try {
+            // Show immediate feedback dialog (await it to ensure it shows)
+            console.log("Showing checking dialog...");
+            await dialog.showMessageBox(mainWindow || undefined, {
+              type: "info",
+              title: "Checking for Updates",
+              message: "Checking for updates...",
+              detail: `Current version: ${app.getVersion()}\n\nPlease wait while we check GitHub for updates.`,
+              buttons: ["OK"],
+            });
+          
             console.log("Checking for updates from tray menu...");
             updateStatus.checking = true;
             updateStatus.error = null;
@@ -412,12 +462,18 @@ const createTray = () => {
               mainWindow.webContents.send("update-status", { ...updateStatus });
             }
             
-            await autoUpdater.checkForUpdates();
+            // Perform the check
+            const result = await autoUpdater.checkForUpdates();
             console.log("Update check initiated successfully");
+            console.log("Check result:", result);
+            
+            // The update events will handle showing results
           } catch (error) {
             updateStatus.checking = false;
             updateStatus.error = error.message;
             console.error("Failed to check for updates:", error);
+            console.error("Error stack:", error.stack);
+            console.error("Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
             
             // Send error status to renderer
             if (mainWindow && !mainWindow.isDestroyed()) {
@@ -427,7 +483,7 @@ const createTray = () => {
             // Show error dialog
             dialog.showErrorBox(
               "Update Check Failed",
-              `Failed to check for updates: ${error.message}\n\nPlease check your internet connection and try again.`
+              `Failed to check for updates:\n\n${error.message}\n\nPlease check:\n- Internet connection\n- GitHub repository configuration\n- Version format in package.json`
             );
           }
         } else {
@@ -436,7 +492,7 @@ const createTray = () => {
             type: "info",
             title: "Check for Updates",
             message: "Updates are only available in the released version.",
-            detail: "This feature works when the app is built and distributed via GitHub Releases.",
+            detail: "This feature works when the app is built and distributed via GitHub Releases.\n\nCurrent mode: Development",
             buttons: ["OK"],
           });
         }
@@ -750,12 +806,14 @@ app.on("before-quit", () => {
 
 // Auto-updater event handlers
 autoUpdater.on("checking-for-update", () => {
-  console.log("Checking for update...");
+  console.log("=== Checking for update ===");
+  console.log("Event fired: checking-for-update");
   updateStatus.checking = true;
   updateStatus.error = null;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("update-status", { ...updateStatus });
   }
+  console.log("Update status sent to renderer");
 });
 
 autoUpdater.on("update-available", (info) => {
@@ -800,6 +858,14 @@ autoUpdater.on("update-not-available", (info) => {
   updateStatus.info = info;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("update-status", { ...updateStatus });
+    // Show dialog to inform user
+    dialog.showMessageBox(mainWindow, {
+      type: "info",
+      title: "No Updates Available",
+      message: "You're using the latest version!",
+      detail: `Current version: ${app.getVersion()}\nLatest version: ${info?.version || app.getVersion()}\n\nNo updates are available at this time.`,
+      buttons: ["OK"],
+    });
   }
 });
 
