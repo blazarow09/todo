@@ -9,10 +9,11 @@ type TodoItemProps = {
   onToggle: (id: number) => void;
   onUpdate: (id: number, updates: Partial<Todo>) => void;
   onDelete: (id: number) => void;
+  onEdit?: (todo: Todo) => void;
   searchQuery?: string;
 };
 
-export default function TodoItem({ todo, onToggle, onUpdate, onDelete, searchQuery }: TodoItemProps) {
+export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, searchQuery }: TodoItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(todo.text);
   const [showNotes, setShowNotes] = useState(false);
@@ -378,11 +379,18 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, searchQue
           </div>
         )}
       </div>
-      <button className="delete-btn" onClick={() => onDelete(todo.id)}>
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M4 4L14 14M4 14L14 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </button>
+      <div className="todo-item-actions">
+        {onEdit && (
+          <button className="edit-btn" onClick={() => onEdit(todo)} title="Edit">
+            <Icon icon="mdi:pencil" width="16" height="16" />
+          </button>
+        )}
+        <button className="delete-btn" onClick={() => onDelete(todo.id)} title="Delete">
+          <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 4L14 14M4 14L14 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
       
       {lightboxUrl && createPortal(
         <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>

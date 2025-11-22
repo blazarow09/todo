@@ -422,3 +422,43 @@
 .cancel-btn:hover {
   background: var(--border-color);
 }
+
+.todo-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.edit-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.todo-item:hover .edit-btn {
+  opacity: 1;
+}
+
+.edit-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+[data-theme="dark"] .edit-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  color: #818cf8;
+}
+
+.edit-btn:active {
+  transform: scale(0.9);
+}

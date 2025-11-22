@@ -4,7 +4,7 @@ import type { DropResult } from "@hello-pangea/dnd";
 import { Icon } from "@iconify/react";
 import "./App.css";
 import "./themes.css";
-import { Todo, FilterType, Theme, Folder } from "./types";
+import { Todo, FilterType, Theme, Folder, Attachment } from "./types";
 import { useUndoRedo } from "./hooks/useUndoRedo";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { exportTodos, importTodos } from "./utils/storage";
@@ -76,6 +76,8 @@ export default function App() {
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [label, setLabel] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isDragOverModal, setIsDragOverModal] = useState(false);
   const [filter, setFilter] = useState<FilterType>('active');
   const [selectedLabel, setSelectedLabel] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -123,6 +125,7 @@ export default function App() {
 
   const [showFolderPopup, setShowFolderPopup] = useState(false);
   const [showTodoModal, setShowTodoModal] = useState(false);
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
 
@@ -273,27 +276,50 @@ export default function App() {
   const addTodo = useCallback((folderIdOverride?: string | null) => {
     const folderToUse = folderIdOverride !== undefined ? folderIdOverride : (selectedFolderId || 'uncategorized');
     if (!input.trim()) return;
-    const newTodo: Todo = {
-      id: Date.now(),
-      text: input.trim(),
-      done: false,
-      priority,
-      label: label.trim(),
-      folderId: folderToUse,
-      dueDate: dueDate || undefined,
-      createdAt: Date.now(),
-    };
-    const newTodos = [...todos, newTodo];
-    setTodos(newTodos);
-    addToHistory(newTodos, 'add');
+
+    if (editingTodo) {
+      // Update existing todo
+      const updatedTodo: Todo = {
+        ...editingTodo,
+        text: input.trim(),
+        priority,
+        label: label.trim(),
+        folderId: folderToUse,
+        dueDate: dueDate || undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      };
+      const newTodos = todos.map(t => t.id === editingTodo.id ? updatedTodo : t);
+      setTodos(newTodos);
+      addToHistory(newTodos, 'update');
+      setEditingTodo(null);
+    } else {
+      // Create new todo
+      const newTodo: Todo = {
+        id: Date.now(),
+        text: input.trim(),
+        done: false,
+        priority,
+        label: label.trim(),
+        folderId: folderToUse,
+        dueDate: dueDate || undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
+        createdAt: Date.now(),
+      };
+      const newTodos = [...todos, newTodo];
+      setTodos(newTodos);
+      addToHistory(newTodos, 'add');
+    }
+
     setInput("");
     setLabel("");
     setDueDate("");
+    setAttachments([]);
     setPriority('medium');
     setShowTodoModal(false);
     setTargetFolderId(null);
+    setIsDragOverModal(false);
     // Keep the selected folder (don't reset) - it's saved to localStorage
-  }, [input, priority, label, dueDate, selectedFolderId, todos, addToHistory]);
+  }, [input, priority, label, dueDate, attachments, selectedFolderId, todos, addToHistory, editingTodo]);
 
   const updateTodo = useCallback((id: number, updates: Partial<Todo>) => {
     const newTodos = todos.map(t => t.id === id ? { ...t, ...updates } : t);
@@ -600,6 +626,205 @@ export default function App() {
 
   const hasBackground = backgroundImage || backgroundColor;
 
+  const handleEditTodo = useCallback((todo: Todo) => {
+    setEditingTodo(todo);
+    setInput(todo.text);
+    setPriority(todo.priority);
+    setLabel(todo.label || '');
+    setDueDate(todo.dueDate || '');
+    setAttachments(todo.attachments || []);
+    setTargetFolderId(todo.folderId || null);
+    setShowTodoModal(true);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setShowTodoModal(false);
+    setEditingTodo(null);
+    setInput("");
+    setLabel("");
+    setDueDate("");
+    setAttachments([]);
+    setPriority('medium');
+    setTargetFolderId(null);
+    setIsDragOverModal(false);
+  }, []);
+
+  const handleFileSelect = useCallback((files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const imageFiles: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/')) {
+        imageFiles.push(file);
+      }
+    }
+
+    if (imageFiles.length === 0) return;
+
+    imageFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        if (dataUrl) {
+          const newAttachment: Attachment = {
+            id: String(Date.now() + Math.random()),
+            type: 'image',
+            url: dataUrl,
+            name: file.name || 'Image'
+          };
+          setAttachments(prev => [...prev, newAttachment]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const handleModalDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverModal(false);
+
+    const items = e.dataTransfer.items;
+    const files: File[] = [];
+    let urlProcessed = false;
+
+    // Process dropped items
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file && file.type.startsWith('image/')) {
+          files.push(file);
+        }
+      } else if (item.kind === 'string') {
+        if (item.type === 'text/uri-list' || item.type === 'text/plain') {
+          item.getAsString((url) => {
+            if (!urlProcessed && url && (url.startsWith('http') || url.startsWith('https') || url.startsWith('data:image'))) {
+              urlProcessed = true;
+              const newAttachment: Attachment = {
+                id: String(Date.now()),
+                type: 'image',
+                url: url,
+                name: 'Image'
+              };
+              setAttachments(prev => [...prev, newAttachment]);
+            }
+          });
+        }
+      }
+    }
+
+    // Process files
+    if (files.length > 0) {
+      files.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const dataUrl = event.target?.result as string;
+          if (dataUrl) {
+            const newAttachment: Attachment = {
+              id: String(Date.now() + Math.random()),
+              type: 'image',
+              url: dataUrl,
+              name: file.name || 'Image'
+            };
+            setAttachments(prev => [...prev, newAttachment]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  }, []);
+
+  const handleModalDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const hasImage = Array.from(e.dataTransfer.items).some(item =>
+      item.kind === 'file' && item.type.startsWith('image/')
+    ) || e.dataTransfer.types.includes('text/uri-list');
+
+    if (hasImage) {
+      e.dataTransfer.dropEffect = 'copy';
+      setIsDragOverModal(true);
+    } else {
+      e.dataTransfer.dropEffect = 'none';
+    }
+  }, []);
+
+  const handleModalDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOverModal(false);
+    }
+  }, []);
+
+  const handleRemoveAttachment = useCallback((attachmentId: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+  }, []);
+
+  const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    // Only handle paste when modal is open
+    if (!showTodoModal) return;
+
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    // Check if clipboard contains images
+    let hasImage = false;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        hasImage = true;
+        break;
+      }
+    }
+
+    // If no image, let normal paste behavior happen
+    if (!hasImage) return;
+
+    // If there's an image, handle it as attachment
+    // Prevent default to avoid pasting image data into text fields
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Process the image
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const dataUrl = event.target?.result as string;
+            if (dataUrl) {
+              const newAttachment: Attachment = {
+                id: String(Date.now() + Math.random()),
+                type: 'image',
+                url: dataUrl,
+                name: 'Pasted Image'
+              };
+              setAttachments(prev => [...prev, newAttachment]);
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+        break; // Only process first image
+      }
+    }
+  }, [showTodoModal]);
+
+  // Add paste event listener when modal is open
+  useEffect(() => {
+    if (showTodoModal) {
+      window.addEventListener('paste', handlePaste);
+      return () => {
+        window.removeEventListener('paste', handlePaste);
+      };
+    }
+  }, [showTodoModal, handlePaste]);
+
   return (
     <div
       className="app"
@@ -774,6 +999,12 @@ export default function App() {
         className="fab-add-todo"
         onClick={() => {
           setTargetFolderId(null);
+          setEditingTodo(null);
+          setInput("");
+          setLabel("");
+          setDueDate("");
+          setAttachments([]);
+          setPriority('medium');
           setShowTodoModal(true);
         }}
         title="Add new todo"
@@ -781,13 +1012,13 @@ export default function App() {
         <Icon icon="mdi:plus" width="18" height="18" />
       </button>
 
-      {/* Todo Creation Modal */}
+      {/* Todo Creation/Edit Modal */}
       {showTodoModal && (
-        <div className="todo-modal-overlay" onClick={() => setShowTodoModal(false)}>
+        <div className="todo-modal-overlay" onClick={handleCloseModal}>
           <div className="todo-modal" onClick={(e) => e.stopPropagation()}>
             <div className="todo-modal-header">
-              <h3>Create New Todo</h3>
-              <button className="todo-modal-close" onClick={() => setShowTodoModal(false)}>×</button>
+              <h3>{editingTodo ? 'Edit Todo' : 'Create New Todo'}</h3>
+              <button className="todo-modal-close" onClick={handleCloseModal}>×</button>
             </div>
             <div className="todo-modal-content">
               <div className="input-row">
@@ -812,7 +1043,7 @@ export default function App() {
                       e.preventDefault();
                       addTodo(targetFolderId);
                     } else if (e.key === 'Escape') {
-                      setShowTodoModal(false);
+                      handleCloseModal();
                     }
                     // Shift+Enter allows new line (default behavior)
                   }}
@@ -876,8 +1107,54 @@ export default function App() {
                   />
                 </div>
               </div>
+              <div
+                className={`todo-modal-attachments ${isDragOverModal ? 'drag-over' : ''}`}
+                onDrop={handleModalDrop}
+                onDragOver={handleModalDragOver}
+                onDragLeave={handleModalDragLeave}
+              >
+                <label className="input-option-label">Attachments</label>
+                <div className="attachments-upload-area">
+                  <input
+                    type="file"
+                    id="attachment-upload"
+                    accept="image/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileSelect(e.target.files)}
+                  />
+                  <button
+                    type="button"
+                    className="attachments-upload-btn"
+                    onClick={() => {
+                      const input = document.getElementById('attachment-upload') as HTMLInputElement;
+                      input?.click();
+                    }}
+                  >
+                    <Icon icon="mdi:image-plus" width="20" height="20" />
+                    <span>Upload Images</span>
+                  </button>
+                  <span className="attachments-drop-hint">or drop images here / paste from clipboard</span>
+                </div>
+                {attachments.length > 0 && (
+                  <div className="attachments-preview-grid">
+                    {attachments.map(att => (
+                      <div key={att.id} className="attachment-preview-tile">
+                        <img src={att.url} alt={att.name || 'Attachment'} />
+                        <button
+                          className="attachment-preview-remove"
+                          onClick={() => handleRemoveAttachment(att.id)}
+                          title="Remove"
+                        >
+                          <Icon icon="mdi:close" width="14" height="14" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="todo-modal-actions">
-                <button className="todo-modal-cancel" onClick={() => setShowTodoModal(false)}>
+                <button className="todo-modal-cancel" onClick={handleCloseModal}>
                   Cancel
                 </button>
                 <button
@@ -885,7 +1162,7 @@ export default function App() {
                   onClick={() => addTodo(targetFolderId)}
                   disabled={!input.trim()}
                 >
-                  Create
+                  {editingTodo ? 'Save' : 'Create'}
                 </button>
               </div>
             </div>
@@ -921,6 +1198,12 @@ export default function App() {
                                   className="empty-state-add-btn"
                                   onClick={() => {
                                     setTargetFolderId(folderId === 'uncategorized' ? null : folderId);
+                                    setEditingTodo(null);
+                                    setInput("");
+                                    setLabel("");
+                                    setDueDate("");
+                                    setAttachments([]);
+                                    setPriority('medium');
                                     setShowTodoModal(true);
                                   }}
                                   title="Add todo to this folder"
@@ -943,6 +1226,7 @@ export default function App() {
                                         onToggle={toggleTodo}
                                         onUpdate={updateTodo}
                                         onDelete={archiveTodo}
+                                        onEdit={handleEditTodo}
                                         searchQuery={searchQuery}
                                       />
                                     </li>
@@ -960,6 +1244,12 @@ export default function App() {
                           onClick={(e) => {
                             e.stopPropagation();
                             setTargetFolderId(folderId);
+                            setEditingTodo(null);
+                            setInput("");
+                            setLabel("");
+                            setDueDate("");
+                            setAttachments([]);
+                            setPriority('medium');
                             setShowTodoModal(true);
                           }}
                           title="Add todo to this folder"
@@ -969,6 +1259,12 @@ export default function App() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setTargetFolderId(folderId);
+                              setEditingTodo(null);
+                              setInput("");
+                              setLabel("");
+                              setDueDate("");
+                              setAttachments([]);
+                              setPriority('medium');
                               setShowTodoModal(true);
                             }}
                             title="Add todo to this folder"
