@@ -16,12 +16,12 @@ const getSettingsPath = () => {
   return path.join(app.getPath('userData'), 'settings.json');
 };
 
-// Load settings
-const loadSettings = () => {
+// Load settings (async for better performance)
+const loadSettings = async () => {
   try {
     const settingsPath = getSettingsPath();
     if (fs.existsSync(settingsPath)) {
-      const data = fs.readFileSync(settingsPath, 'utf8');
+      const data = await fs.promises.readFile(settingsPath, 'utf8');
       return JSON.parse(data);
     }
   } catch (error) {
@@ -40,12 +40,12 @@ const saveSettings = (settings) => {
   }
 };
 
-// Load window state
-const loadWindowState = () => {
+// Load window state (async for better performance)
+const loadWindowState = async () => {
   try {
     const statePath = getWindowStatePath();
     if (fs.existsSync(statePath)) {
-      const data = fs.readFileSync(statePath, 'utf8');
+      const data = await fs.promises.readFile(statePath, 'utf8');
       return JSON.parse(data);
     }
   } catch (error) {
@@ -71,7 +71,6 @@ const saveWindowState = (bounds) => {
 };
 
 const createSplashWindow = () => {
-  const displays = screen.getAllDisplays();
   const primaryDisplay = screen.getPrimaryDisplay();
   
   // Center splash screen on primary display
@@ -90,22 +89,31 @@ const createSplashWindow = () => {
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
+    show: false, // Don't show until loaded
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: false,
     },
+    backgroundColor: '#1a1a2e', // Match splash background
+  });
+  
+  splashWindow.once('ready-to-show', () => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.show();
+    }
   });
   
   splashWindow.loadFile(path.join(__dirname, "splash.html"));
   splashWindow.setMenuBarVisibility(false);
 };
 
-const createWindow = () => {
+const createWindow = async () => {
   const displays = screen.getAllDisplays();
   const primaryDisplay = screen.getPrimaryDisplay();
   
-  // Load window state
-  const savedState = loadWindowState();
+  // Load window state (async)
+  const savedState = await loadWindowState();
   
   // Helper function to check if a point is within a display's bounds
   const isPointInDisplay = (x, y, display) => {
@@ -177,7 +185,9 @@ const createWindow = () => {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: false, // Don't throttle animations/timers when in background
     },
+    backgroundColor: '#1a1a2e', // Match splash screen to prevent flash
   });
 
     // Force always on top level for Windows to ensure it stays on top
@@ -213,10 +223,12 @@ const createWindow = () => {
     showMainWindow();
   });
   
+  // Start loading immediately, don't wait
   if (isDev) {
     mainWindow.loadURL("http://localhost:1420");
     mainWindow.webContents.openDevTools();
   } else {
+    // Use loadFile which is faster than loadURL for local files
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
 
@@ -462,18 +474,23 @@ ipcMain.handle("select-image", async () => {
 });
 
 // Launch at startup handlers
-ipcMain.handle("get-launch-at-startup", () => {
-  const settings = loadSettings();
+ipcMain.handle("get-launch-at-startup", async () => {
+  const settings = await loadSettings();
   return !!settings.launchAtStartup;
 });
 
-ipcMain.handle("set-launch-at-startup", (event, value) => {
-  const settings = loadSettings();
+ipcMain.handle("set-launch-at-startup", async (event, value) => {
+  const settings = await loadSettings();
   settings.launchAtStartup = value;
   saveSettings(settings);
   app.setLoginItemSettings({ openAtLogin: value });
   return true;
 });
+
+// Performance optimizations
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
 // Ensure only one instance of the app is running
 const gotTheLock = app.requestSingleInstanceLock();
@@ -494,15 +511,15 @@ if (!gotTheLock) {
     }
   });
 
-  app.whenReady().then(() => {
-    // Create splash screen first
+  app.whenReady().then(async () => {
+    // Create splash screen immediately when app is ready
     createSplashWindow();
     
-    // Create main window (hidden initially)
+    // Create main window (hidden initially) - async to not block
     createWindow();
 
-    // Initialize settings
-    const settings = loadSettings();
+    // Initialize settings (async, non-blocking)
+    const settings = await loadSettings();
     if (settings.launchAtStartup === undefined) {
         // Default to true if not set
         settings.launchAtStartup = true;
@@ -513,10 +530,10 @@ if (!gotTheLock) {
         app.setLoginItemSettings({ openAtLogin: settings.launchAtStartup });
     }
 
-    app.on("activate", () => {
+    app.on("activate", async () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         createSplashWindow();
-        createWindow();
+        await createWindow();
       } else if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();

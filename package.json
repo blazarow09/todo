@@ -1,7 +1,7 @@
 {
   "name": "my-tasks",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A modern desktop todo application with folder organization, labels, priorities, and more",
   "author": "blazarow",
   "main": "electron/main.js",
@@ -44,7 +44,8 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "!**/locales/**"
     ],
     "win": {
       "target": [
@@ -64,6 +65,9 @@
     "portable": {
       "artifactName": "${productName}-${version}-portable.${ext}"
     },
+    "asar": true,
+    "compression": "maximum",
+    "electronLanguages": [],
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

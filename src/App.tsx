@@ -25,22 +25,29 @@ const ALWAYS_ON_TOP_KEY = "todo_always_on_top";
 
 export default function App() {
   const [todos, setTodos] = useState<Todo[]>(() => {
+    // Optimize: Use try-catch only around JSON.parse, check for null first
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try {
-        const loaded = JSON.parse(raw);
-        return loaded.map((todo: any) => ({
+    if (!raw) return [];
+    
+    try {
+      const loaded = JSON.parse(raw);
+      // Use for loop instead of map for better performance with large arrays
+      const result: Todo[] = [];
+      for (let i = 0; i < loaded.length; i++) {
+        const todo = loaded[i];
+        result.push({
           ...todo,
           priority: todo.priority || 'medium',
           label: todo.label || todo.category || '',
           folderId: todo.folderId || null,
           createdAt: todo.createdAt || todo.id,
-        }));
-      } catch (e) {
-        console.error('Failed to load todos:', e);
+        });
       }
+      return result;
+    } catch (e) {
+      console.error('Failed to load todos:', e);
+      return [];
     }
-    return [];
   });
 
   const [folders, setFolders] = useState<Folder[]>(() => {

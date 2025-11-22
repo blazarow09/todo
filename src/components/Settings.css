@@ -19,7 +19,8 @@
   width: 90%;
   max-width: 500px;
   max-height: 80vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   animation: popupSlideIn 0.2s ease;
 }
 
@@ -41,6 +42,7 @@
   align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .settings-header h3 {
@@ -78,6 +80,34 @@
 
 .settings-content {
   padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Sleek scrollbar styling */
+.settings-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-content::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.settings-content::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Firefox scrollbar styling */
+.settings-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
 }
 
 .settings-section {
