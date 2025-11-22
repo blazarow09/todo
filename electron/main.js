@@ -11,6 +11,35 @@ const getWindowStatePath = () => {
   return path.join(app.getPath('userData'), 'window-state.json');
 };
 
+// Settings file path
+const getSettingsPath = () => {
+  return path.join(app.getPath('userData'), 'settings.json');
+};
+
+// Load settings
+const loadSettings = () => {
+  try {
+    const settingsPath = getSettingsPath();
+    if (fs.existsSync(settingsPath)) {
+      const data = fs.readFileSync(settingsPath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Failed to load settings:', error);
+  }
+  return {};
+};
+
+// Save settings
+const saveSettings = (settings) => {
+  try {
+    const settingsPath = getSettingsPath();
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Failed to save settings:', error);
+  }
+};
+
 // Load window state
 const loadWindowState = () => {
   try {
@@ -166,19 +195,17 @@ const createWindow = () => {
   
   // Once main window is ready, hide splash and show main window
   const showMainWindow = () => {
-    setTimeout(() => {
-      if (splashWindow && !splashWindow.isDestroyed()) {
-        splashWindow.close();
-        splashWindow = null;
-      }
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.show();
-        mainWindow.focus();
-      }
-    }, 300); // 300ms delay for smooth transition
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+      splashWindow = null;
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
   };
   
-  mainWindow.webContents.once("did-finish-load", showMainWindow);
+  mainWindow.once("ready-to-show", showMainWindow);
   
   // Also handle failed loads - still show main window
   mainWindow.webContents.once("did-fail-load", () => {
@@ -434,6 +461,20 @@ ipcMain.handle("select-image", async () => {
   return { success: false, canceled: true };
 });
 
+// Launch at startup handlers
+ipcMain.handle("get-launch-at-startup", () => {
+  const settings = loadSettings();
+  return !!settings.launchAtStartup;
+});
+
+ipcMain.handle("set-launch-at-startup", (event, value) => {
+  const settings = loadSettings();
+  settings.launchAtStartup = value;
+  saveSettings(settings);
+  app.setLoginItemSettings({ openAtLogin: value });
+  return true;
+});
+
 // Ensure only one instance of the app is running
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -459,6 +500,18 @@ if (!gotTheLock) {
     
     // Create main window (hidden initially)
     createWindow();
+
+    // Initialize settings
+    const settings = loadSettings();
+    if (settings.launchAtStartup === undefined) {
+        // Default to true if not set
+        settings.launchAtStartup = true;
+        app.setLoginItemSettings({ openAtLogin: true });
+        saveSettings(settings);
+    } else {
+        // Ensure OS setting matches preference
+        app.setLoginItemSettings({ openAtLogin: settings.launchAtStartup });
+    }
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {

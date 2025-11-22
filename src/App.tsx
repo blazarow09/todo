@@ -24,8 +24,47 @@ const SELECTED_FOLDER_KEY = "todo_selected_folder";
 const ALWAYS_ON_TOP_KEY = "todo_always_on_top";
 
 export default function App() {
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [todos, setTodos] = useState<Todo[]>(() => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      try {
+        const loaded = JSON.parse(raw);
+        return loaded.map((todo: any) => ({
+          ...todo,
+          priority: todo.priority || 'medium',
+          label: todo.label || todo.category || '',
+          folderId: todo.folderId || null,
+          createdAt: todo.createdAt || todo.id,
+        }));
+      } catch (e) {
+        console.error('Failed to load todos:', e);
+      }
+    }
+    return [];
+  });
+
+  const [folders, setFolders] = useState<Folder[]>(() => {
+    const foldersRaw = localStorage.getItem(FOLDERS_KEY);
+    let loadedFolders: Folder[] = [];
+    if (foldersRaw) {
+      try {
+        loadedFolders = JSON.parse(foldersRaw);
+      } catch (e) {
+        console.error('Failed to load folders:', e);
+      }
+    }
+    const hasUncategorized = loadedFolders.some((f: Folder) => f.id === 'uncategorized');
+    if (!hasUncategorized) {
+      return [{
+        id: 'uncategorized',
+        name: 'Uncategorized',
+        collapsed: false,
+        order: 0
+      }, ...loadedFolders];
+    }
+    return loadedFolders;
+  });
+
   const [input, setInput] = useState("");
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [label, setLabel] = useState("");
@@ -33,6 +72,7 @@ export default function App() {
   const [filter, setFilter] = useState<FilterType>('active');
   const [selectedLabel, setSelectedLabel] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  
   // Initialize theme from localStorage immediately to prevent overwriting on mount
   const getInitialTheme = (): Theme => {
     if (typeof window !== 'undefined') {
@@ -44,131 +84,66 @@ export default function App() {
     return 'light';
   };
   const [theme, setTheme] = useState<Theme>(getInitialTheme());
-  const [alwaysOnTop, setAlwaysOnTop] = useState<boolean>(true);
+  
+  const [alwaysOnTop, setAlwaysOnTop] = useState<boolean>(() => {
+    const saved = localStorage.getItem(ALWAYS_ON_TOP_KEY);
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const [launchAtStartup, setLaunchAtStartup] = useState<boolean>(true);
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(() => localStorage.getItem("todo_background_image"));
+  const [backgroundColor, setBackgroundColor] = useState<string | null>(() => localStorage.getItem("todo_background_color"));
+  const [overlayOpacity, setOverlayOpacity] = useState<number>(() => {
+    const saved = localStorage.getItem("todo_background_overlay_opacity");
+    if (saved) {
+      const opacity = parseFloat(saved);
+      if (!isNaN(opacity) && opacity >= 0 && opacity <= 1) {
+        return opacity;
+      }
+    }
+    return 0.3;
+  });
+  
   const [showSettings, setShowSettings] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() => {
+    const saved = localStorage.getItem(SELECTED_FOLDER_KEY);
+    return saved === 'uncategorized' ? null : saved;
+  });
+  
   const [showFolderPopup, setShowFolderPopup] = useState(false);
   const [showTodoModal, setShowTodoModal] = useState(false);
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
 
   const { addToHistory, undo, redo, canUndo, canRedo } = useUndoRedo(todos);
 
-  // Load todos, folders and theme from localStorage
+  // Apply always-on-top to electron on mount
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try {
-        const loaded = JSON.parse(raw);
-        // Migrate old todos to new format
-        const migrated = loaded.map((todo: any) => ({
-          ...todo,
-          priority: todo.priority || 'medium',
-          label: todo.label || todo.category || '',
-          folderId: todo.folderId || null,
-          createdAt: todo.createdAt || todo.id,
-        }));
-        setTodos(migrated);
-      } catch (e) {
-        console.error('Failed to load todos:', e);
+    // Use setTimeout to ensure Electron API is ready
+    setTimeout(() => {
+      if ((window as any).electronAPI?.setAlwaysOnTop) {
+        (window as any).electronAPI.setAlwaysOnTop(alwaysOnTop);
       }
-    }
-    setIsLoaded(true);
+    }, 100);
+  }, []);
 
-    // Load folders
-    const foldersRaw = localStorage.getItem(FOLDERS_KEY);
-    if (foldersRaw) {
-      try {
-        const loadedFolders = JSON.parse(foldersRaw);
-        // Ensure "Uncategorized" folder exists
-        const hasUncategorized = loadedFolders.some((f: Folder) => f.id === 'uncategorized');
-        if (!hasUncategorized) {
-          const defaultFolder: Folder = {
-            id: 'uncategorized',
-            name: 'Uncategorized',
-            collapsed: false,
-            order: 0
-          };
-          setFolders([defaultFolder, ...loadedFolders]);
-        } else {
-          setFolders(loadedFolders);
-        }
-      } catch (e) {
-        console.error('Failed to load folders:', e);
-        // Create default "Uncategorized" folder on error
-        const defaultFolder: Folder = {
-          id: 'uncategorized',
-          name: 'Uncategorized',
-          collapsed: false,
-          order: 0
-        };
-        setFolders([defaultFolder]);
-      }
-    } else {
-      // Create default "Uncategorized" folder
-      const defaultFolder: Folder = {
-        id: 'uncategorized',
-        name: 'Uncategorized',
-        collapsed: false,
-        order: 0
-      };
-      setFolders([defaultFolder]);
-    }
-
-    // Theme is already loaded from initial state and applied in main.tsx
-    // Just ensure DOM is synced with the loaded theme
-    const savedTheme = localStorage.getItem(THEME_KEY) as Theme;
-    if (savedTheme === 'light' || savedTheme === 'dark') {
-      // Ensure DOM matches the saved theme
-      if (savedTheme !== theme) {
-        setTheme(savedTheme);
-      }
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    } else {
-      // No theme saved, save the current theme state
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem(THEME_KEY, theme);
-    }
-
-    // Load always-on-top preference
-    const savedAlwaysOnTop = localStorage.getItem(ALWAYS_ON_TOP_KEY);
-    const applyAlwaysOnTop = (value: boolean) => {
-      setAlwaysOnTop(value);
-      // Apply to window if Electron API is available
-      // Use setTimeout to ensure Electron API is ready
-      setTimeout(() => {
-        if ((window as any).electronAPI?.setAlwaysOnTop) {
-          (window as any).electronAPI.setAlwaysOnTop(value);
-        }
-      }, 100);
-    };
-
-    if (savedAlwaysOnTop !== null) {
-      const value = savedAlwaysOnTop === 'true';
-      applyAlwaysOnTop(value);
-    } else {
-      // Default to true, save it
-      const defaultValue = true;
-      localStorage.setItem(ALWAYS_ON_TOP_KEY, String(defaultValue));
-      applyAlwaysOnTop(defaultValue);
-    }
-
-    // Load last selected folder
-    const savedFolderId = localStorage.getItem(SELECTED_FOLDER_KEY);
-    if (savedFolderId) {
-      setSelectedFolderId(savedFolderId === 'uncategorized' ? null : savedFolderId);
+  // Load launch at startup preference
+  useEffect(() => {
+    if ((window as any).electronAPI?.getLaunchAtStartup) {
+      (window as any).electronAPI.getLaunchAtStartup().then((value: boolean) => {
+        setLaunchAtStartup(value);
+      });
     }
   }, []);
 
   // Save todos to localStorage
   useEffect(() => {
-    if (!isLoaded) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-  }, [todos, isLoaded]);
+  }, [todos]);
 
   // Save folders to localStorage (ensure Uncategorized always exists)
   useEffect(() => {
@@ -186,6 +161,27 @@ export default function App() {
       localStorage.setItem(FOLDERS_KEY, JSON.stringify(foldersToSave));
     }
   }, [folders]);
+
+  // Save background settings
+  useEffect(() => {
+    if (backgroundImage) {
+      localStorage.setItem("todo_background_image", backgroundImage);
+    } else {
+      localStorage.removeItem("todo_background_image");
+    }
+  }, [backgroundImage]);
+
+  useEffect(() => {
+    if (backgroundColor) {
+      localStorage.setItem("todo_background_color", backgroundColor);
+    } else {
+      localStorage.removeItem("todo_background_color");
+    }
+  }, [backgroundColor]);
+
+  useEffect(() => {
+    localStorage.setItem("todo_background_overlay_opacity", String(overlayOpacity));
+  }, [overlayOpacity]);
 
   // Apply theme and save to localStorage whenever it changes
   useEffect(() => {
@@ -480,14 +476,11 @@ export default function App() {
     });
   }, []);
 
-  const deleteFolder = useCallback((folderId: string) => {
+  const deleteFolder = useCallback((folderId: string, folderName: string) => {
     // Prevent deletion of "Uncategorized" folder
     if (folderId === 'uncategorized') return;
-    const folder = folders.find(f => f.id === folderId);
-    if (folder) {
-      setFolderToDelete({ id: folderId, name: folder.name });
-    }
-  }, [folders]);
+    setFolderToDelete({ id: folderId, name: folderName });
+  }, []);
 
   const confirmDeleteFolder = useCallback(() => {
     if (!folderToDelete) return;
@@ -598,8 +591,27 @@ export default function App() {
   const activeTodos = todos.filter((t) => !t.done && !t.isArchived).length;
   const completedCount = todos.filter((t) => t.done && !t.isArchived).length;
 
+  const hasBackground = backgroundImage || backgroundColor;
+  
   return (
-    <div className="app">
+    <div 
+      className="app"
+      style={{
+        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+        backgroundColor: backgroundColor || undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+        '--background-overlay-opacity': hasBackground ? overlayOpacity : 0
+      } as React.CSSProperties}
+    >
+      {hasBackground && (
+        <div 
+          className="background-overlay"
+          style={{ opacity: overlayOpacity }}
+        />
+      )}
       <div className="titlebar">
         <div className="titlebar-search">
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
@@ -681,9 +693,8 @@ export default function App() {
                   Cancel
                 </button>
                 <button 
-                  className="folder-popup-create" 
+                  className="folder-popup-delete" 
                   onClick={confirmDeleteFolder}
-                  style={{ background: '#ef4444' }}
                 >
                   Delete
                 </button>
@@ -720,6 +731,19 @@ export default function App() {
           localStorage.setItem(ALWAYS_ON_TOP_KEY, String(value));
           if ((window as any).electronAPI?.setAlwaysOnTop) {
             (window as any).electronAPI.setAlwaysOnTop(value);
+          }
+        }}
+        backgroundImage={backgroundImage}
+        onBackgroundImageChange={setBackgroundImage}
+        backgroundColor={backgroundColor}
+        onBackgroundColorChange={setBackgroundColor}
+        backgroundOverlayOpacity={overlayOpacity}
+        onBackgroundOverlayOpacityChange={setOverlayOpacity}
+        launchAtStartup={launchAtStartup}
+        onLaunchAtStartupChange={(value) => {
+          setLaunchAtStartup(value);
+          if ((window as any).electronAPI?.setLaunchAtStartup) {
+            (window as any).electronAPI.setLaunchAtStartup(value);
           }
         }}
         isOpen={showSettings}

@@ -9,6 +9,8 @@ type SettingsProps = {
   onThemeChange: (theme: Theme) => void;
   alwaysOnTop: boolean;
   onAlwaysOnTopChange: (value: boolean) => void;
+  launchAtStartup: boolean;
+  onLaunchAtStartupChange: (value: boolean) => void;
   isOpen: boolean;
   onClose: () => void;
   onExport: () => void;
@@ -18,15 +20,23 @@ type SettingsProps = {
   onClearArchived: () => void;
   folders: Folder[];
   onCreateFolder: (name: string) => void;
+  backgroundImage: string | null;
+  onBackgroundImageChange: (image: string | null) => void;
+  backgroundColor: string | null;
+  onBackgroundColorChange: (color: string | null) => void;
+  backgroundOverlayOpacity: number;
+  onBackgroundOverlayOpacityChange: (opacity: number) => void;
 };
 
-export default function Settings({ 
-  todos, 
-  theme, 
-  onThemeChange, 
-  alwaysOnTop, 
-  onAlwaysOnTopChange, 
-  isOpen, 
+export default function Settings({
+  todos,
+  theme,
+  onThemeChange,
+  alwaysOnTop,
+  onAlwaysOnTopChange,
+  launchAtStartup,
+  onLaunchAtStartupChange,
+  isOpen,
   onClose,
   onExport,
   onImport,
@@ -34,15 +44,46 @@ export default function Settings({
   onRestore,
   onClearArchived,
   folders,
-  onCreateFolder
+  onCreateFolder,
+  backgroundImage,
+  onBackgroundImageChange,
+  backgroundColor,
+  onBackgroundColorChange,
+  backgroundOverlayOpacity,
+  onBackgroundOverlayOpacityChange,
 }: SettingsProps) {
   const [view, setView] = useState<'settings' | 'archived'>('settings');
   const [newFolderName, setNewFolderName] = useState('');
-  
+
   const handleCreateFolder = () => {
     if (newFolderName.trim()) {
       onCreateFolder(newFolderName.trim());
       setNewFolderName('');
+    }
+  };
+
+  const handleSelectImage = async () => {
+    if ((window as any).electronAPI?.selectImage) {
+      const result = await (window as any).electronAPI.selectImage();
+      if (result.success) {
+        onBackgroundImageChange(result.url);
+      }
+    } else {
+      // Fallback
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            onBackgroundImageChange(e.target?.result as string);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
     }
   };
 
@@ -55,9 +96,9 @@ export default function Settings({
   const completed = nonArchivedTodos.filter(t => t.done).length;
   const active = total - completed;
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-  
+
   const highPriority = nonArchivedTodos.filter(t => !t.done && t.priority === 'high').length;
-  const overdue = nonArchivedTodos.filter(t => 
+  const overdue = nonArchivedTodos.filter(t =>
     !t.done && t.dueDate && new Date(t.dueDate) < new Date()
   ).length;
 
@@ -71,17 +112,17 @@ export default function Settings({
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="settings-header">
           <div className="header-title-group">
-             {view === 'archived' && (
-                <button className="settings-back-btn" onClick={() => setView('settings')}>
-                  <Icon icon="mdi:arrow-left" width="20" height="20" />
-                </button>
-             )}
-             <h3>{view === 'archived' ? 'Archived' : 'Settings'}</h3>
+            {view === 'archived' && (
+              <button className="settings-back-btn" onClick={() => setView('settings')}>
+                <Icon icon="mdi:arrow-left" width="20" height="20" />
+              </button>
+            )}
+            <h3>{view === 'archived' ? 'Archived' : 'Settings'}</h3>
           </div>
           <div className="header-actions">
             {view === 'archived' && archivedTodos.length > 0 && (
-              <button 
-                className="clear-all-btn" 
+              <button
+                className="clear-all-btn"
                 onClick={onClearArchived}
                 title="Clear all archived todos"
               >
@@ -100,7 +141,7 @@ export default function Settings({
                 <h4>Appearance</h4>
                 <div className="settings-item">
                   <label>Theme</label>
-                  <button 
+                  <button
                     className="theme-toggle-btn"
                     onClick={() => onThemeChange(theme === 'light' ? 'dark' : 'light')}
                   >
@@ -108,6 +149,56 @@ export default function Settings({
                     <span>{theme === 'light' ? 'Light' : 'Dark'}</span>
                   </button>
                 </div>
+                <div className="settings-item">
+                  <label>Background Color</label>
+                  <div className="background-color-picker">
+                    <input
+                      type="color"
+                      value={backgroundColor || "#ffffff"}
+                      onChange={(e) => onBackgroundColorChange(e.target.value)}
+                    />
+                    {backgroundColor && (
+                      <button onClick={() => onBackgroundColorChange(null)} className="reset-color-btn" title="Reset Color">
+                        <Icon icon="mdi:refresh" width="16" height="16" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="settings-item">
+                  <label>Background Image</label>
+                  <div className="background-image-controls">
+                    <button onClick={handleSelectImage} className="select-image-btn">
+                      <Icon icon="mdi:image-plus" width="16" height="16" />
+                      <span>Upload</span>
+                    </button>
+                    {backgroundImage && (
+                      <button onClick={() => onBackgroundImageChange(null)} className="remove-image-btn" title="Remove Image">
+                        <Icon icon="mdi:trash-can-outline" width="16" height="16" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {backgroundImage && (
+                  <div className="background-preview" style={{ backgroundImage: `url(${backgroundImage})` }}></div>
+                )}
+                {(backgroundImage || backgroundColor) && (
+                  <div className="settings-item slider-item">
+                    <label htmlFor="overlay-opacity">Content Overlay Opacity</label>
+                    <div className="overlay-opacity-control">
+                      <input
+                        type="range"
+                        id="overlay-opacity"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={backgroundOverlayOpacity}
+                        onChange={(e) => onBackgroundOverlayOpacityChange(parseFloat(e.target.value))}
+                        className="overlay-opacity-slider"
+                      />
+                      <span className="overlay-opacity-value">{Math.round(backgroundOverlayOpacity * 100)}%</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="settings-section">
@@ -124,8 +215,20 @@ export default function Settings({
                     <span className="toggle-slider"></span>
                   </label>
                 </div>
+                <div className="settings-item">
+                  <label htmlFor="launch-at-startup">Launch at startup</label>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="launch-at-startup"
+                      checked={launchAtStartup}
+                      onChange={(e) => onLaunchAtStartupChange(e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
               </div>
-              
+
               <div className="settings-section">
                 <h4>Folders</h4>
                 <div className="folder-creation">
@@ -141,8 +244,8 @@ export default function Settings({
                     placeholder="Folder name..."
                     className="folder-input"
                   />
-                  <button 
-                    className="folder-create-btn" 
+                  <button
+                    className="folder-create-btn"
                     onClick={handleCreateFolder}
                     disabled={!newFolderName.trim()}
                   >
@@ -161,7 +264,7 @@ export default function Settings({
                   </div>
                 )}
               </div>
-              
+
               <div className="settings-section">
                 <h4>Data</h4>
                 <div className="data-actions">
@@ -179,7 +282,7 @@ export default function Settings({
                   </button>
                 </div>
               </div>
-              
+
               <div className="settings-section">
                 <h4>Statistics</h4>
                 <div className="stats-grid">
@@ -216,31 +319,31 @@ export default function Settings({
             </>
           ) : (
             <div className="archived-list-container">
-                {archivedTodos.length === 0 ? (
-                    <div className="empty-archived">
-                        <Icon icon="mdi:archive-outline" width="48" height="48" />
-                        <p>No archived todos</p>
+              {archivedTodos.length === 0 ? (
+                <div className="empty-archived">
+                  <Icon icon="mdi:archive-outline" width="48" height="48" />
+                  <p>No archived todos</p>
+                </div>
+              ) : (
+                <div className="archived-list">
+                  {archivedTodos.map(todo => (
+                    <div key={todo.id} className="archived-item">
+                      <div className="archived-item-content">
+                        <span className="archived-text">{todo.text}</span>
+                        <span className="archived-date">Created: {new Date(todo.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="archived-actions">
+                        <button onClick={() => onRestore(todo.id)} title="Restore" className="restore-btn">
+                          <Icon icon="mdi:restore" width="18" height="18" />
+                        </button>
+                        <button onClick={() => onDelete(todo.id)} title="Delete Permanently" className="delete-permanent-btn">
+                          <Icon icon="mdi:delete-forever" width="18" height="18" />
+                        </button>
+                      </div>
                     </div>
-                ) : (
-                    <div className="archived-list">
-                        {archivedTodos.map(todo => (
-                            <div key={todo.id} className="archived-item">
-                               <div className="archived-item-content">
-                                   <span className="archived-text">{todo.text}</span>
-                                   <span className="archived-date">Created: {new Date(todo.createdAt).toLocaleDateString()}</span>
-                               </div>
-                               <div className="archived-actions">
-                                   <button onClick={() => onRestore(todo.id)} title="Restore" className="restore-btn">
-                                       <Icon icon="mdi:restore" width="18" height="18" />
-                                   </button>
-                                   <button onClick={() => onDelete(todo.id)} title="Delete Permanently" className="delete-permanent-btn">
-                                       <Icon icon="mdi:delete-forever" width="18" height="18" />
-                                   </button>
-                               </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

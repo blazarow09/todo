@@ -10,6 +10,11 @@
   --input-border: #e5e7eb;
   --shadow: rgba(0, 0, 0, 0.1);
   --gradient: linear-gradient(90deg, #1a1a2e, #16213e, #0f3460, #533483);
+  /* Blur filter variables - adjust these to experiment with blur intensity */
+  --blur-sm: 2px;
+  --blur-md: 2px;
+  --blur-lg: 3px;
+  --blur-xl: 3px;
 }
 
 [data-theme="dark"] {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { Todo, Attachment } from '../types';
 import './TodoItem.css';
@@ -383,7 +384,7 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, searchQue
         </svg>
       </button>
       
-      {lightboxUrl && (
+      {lightboxUrl && createPortal(
         <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>
           <div className="lightbox-content" onClick={e => e.stopPropagation()}>
             <img src={lightboxUrl} alt="Full size" />
@@ -391,7 +392,8 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, searchQue
               <Icon icon="mdi:close" width="24" height="24" />
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

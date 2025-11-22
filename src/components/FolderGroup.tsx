@@ -8,7 +8,7 @@ type FolderGroupProps = {
   todos: Todo[];
   onToggleCollapse: (folderId: string) => void;
   onRenameFolder: (folderId: string, newName: string) => void;
-  onDeleteFolder: (folderId: string) => void;
+  onDeleteFolder: (folderId: string, folderName: string) => void;
   onMoveTodoToFolder: (todoId: number, folderId: string | null) => void;
   renderTodos: (todos: Todo[], folderId: string) => JSX.Element;
 };
@@ -125,7 +125,10 @@ export default function FolderGroup({
               </button>
               <button
                 className="folder-action-btn delete"
-                onClick={() => onDeleteFolder(folder.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteFolder(folder.id, folder.name);
+                }}
                 title="Delete folder"
               >
                 <Icon icon="mdi:delete" width="16" height="16" />

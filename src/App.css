@@ -25,22 +25,42 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background: var(--gradient);
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
 }
 
 .app {
     height: 100vh;
+    width: 100%;
+    max-width: 100vw;
     display: flex;
     flex-direction: column;
     background: var(--bg-primary);
     overflow: hidden;
+    overflow-x: hidden;
     color: var(--text-primary);
     position: relative;
+    box-sizing: border-box;
+}
+
+.background-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #000;
+    pointer-events: none;
+    z-index: 0;
 }
 
 .folders-section {
     flex: 1;
     overflow-y: auto;
     padding: 0;
+    position: relative;
+    z-index: 1;
 }
 
 .add-folder-header-btn {
@@ -173,7 +193,8 @@ body {
 }
 
 .folder-popup-cancel,
-.folder-popup-create {
+.folder-popup-create,
+.folder-popup-delete {
     padding: 8px 16px;
     border: none;
     border-radius: 6px;
@@ -206,6 +227,17 @@ body {
 .folder-popup-create:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.folder-popup-delete {
+    background: #ef4444;
+    color: white;
+}
+
+.folder-popup-delete:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    background: #dc2626;
 }
 
 /* Floating Action Button */
@@ -686,7 +718,6 @@ body {
 .empty-state-add-btn:hover {
     border-color: var(--text-secondary);
     color: var(--text-primary);
-    background: var(--bg-secondary);
     transform: scale(1.05);
 }
 

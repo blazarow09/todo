@@ -1,9 +1,9 @@
 {
-  "name": "todo-widget",
+  "name": "my-tasks",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.1.0",
   "description": "A modern desktop todo application with folder organization, labels, priorities, and more",
-  "author": "My Todo",
+  "author": "blazarow",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",

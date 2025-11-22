@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   getAlwaysOnTop: () => ipcRenderer.invoke("get-always-on-top"),
   setAlwaysOnTop: (value) => ipcRenderer.invoke("set-always-on-top", value),
+  getLaunchAtStartup: () => ipcRenderer.invoke("get-launch-at-startup"),
+  setLaunchAtStartup: (value) => ipcRenderer.invoke("set-launch-at-startup", value),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   selectImage: () => ipcRenderer.invoke("select-image"),
 });
