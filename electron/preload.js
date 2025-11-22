@@ -19,5 +19,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setLaunchAtStartup: (value) => ipcRenderer.invoke("set-launch-at-startup", value),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   selectImage: () => ipcRenderer.invoke("select-image"),
+  // Auto-update APIs
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  downloadUpdate: () => ipcRenderer.invoke("download-update"),
+  installUpdate: () => ipcRenderer.invoke("install-update"),
+  getUpdateStatus: () => ipcRenderer.invoke("get-update-status"),
+  onUpdateStatus: (callback) => {
+    ipcRenderer.on("update-status", (event, status) => callback(status));
+  },
+  onUpdateDownloadProgress: (callback) => {
+    ipcRenderer.on("update-download-progress", (event, progress) => callback(progress));
+  },
+  removeUpdateListeners: () => {
+    ipcRenderer.removeAllListeners("update-status");
+    ipcRenderer.removeAllListeners("update-download-progress");
+  },
 });
 

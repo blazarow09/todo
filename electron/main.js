@@ -1,10 +1,170 @@
 const { app, BrowserWindow, screen, ipcMain, Tray, Menu, dialog, shell } = require("electron");
+const { autoUpdater } = require("electron-updater");
 const path = require("path");
 const fs = require("fs");
+
+// Configure userData path for portable builds
+// This ensures data persists when building new portable versions
+// Set this BEFORE app.whenReady() to take effect
+if (app.isPackaged) {
+  const execPath = process.execPath;
+  const execDir = path.dirname(execPath);
+  const execName = path.basename(execPath, path.extname(execPath));
+  const os = require('os');
+  
+  // Multiple detection methods for portable builds (works even if renamed)
+  let isPortableBuild = false;
+  
+  // Method 1: Check executable name (original detection)
+  if (execName.toLowerCase().includes('portable')) {
+    isPortableBuild = true;
+  }
+  
+  // Method 2: Check if we're in a temp directory (portable exes extract to temp when run)
+  // This is the most reliable indicator for electron-builder portable builds
+  const tempIndicators = [
+    path.join('Local', 'Temp'),
+    'AppData\\Local\\Temp',
+    'AppData/Local/Temp'
+  ];
+  const isTempDir = tempIndicators.some(indicator => 
+    execDir.includes(indicator) || execDir.toLowerCase().includes('temp')
+  );
+  
+  // Method 3: Check for existing portable data directory (if user already used portable version)
+  const defaultPortableDataPath = path.join(os.homedir(), 'AppData', 'Local', 'My Todo Portable');
+  if (fs.existsSync(defaultPortableDataPath)) {
+    // Check if it has our data files (settings.json or window-state.json)
+    const hasDataFiles = fs.existsSync(path.join(defaultPortableDataPath, 'settings.json')) ||
+                         fs.existsSync(path.join(defaultPortableDataPath, 'window-state.json'));
+    if (hasDataFiles) {
+      isPortableBuild = true;
+    }
+  }
+  
+  // Method 4: Check if we're NOT in a system directory AND in a temp dir
+  // (portable exes run from temp, installed apps run from Program Files)
+  const systemDirs = ['AppData', 'Program Files', 'ProgramData', 'Program Files (x86)'];
+  const isSystemLocation = systemDirs.some(dir => execDir.includes(dir));
+  
+  if (isTempDir && !isSystemLocation) {
+    isPortableBuild = true;
+  }
+  
+  // For portable builds, store data in a fixed location that persists across builds
+  // This solves the issue where building a new portable version removes user data
+  if (isPortableBuild) {
+    try {
+      // Use LocalAppData for portable builds to ensure data persists
+      // even when the portable exe is rebuilt, moved, or renamed
+      const portableDataPath = defaultPortableDataPath;
+      
+      // Ensure the directory exists
+      if (!fs.existsSync(portableDataPath)) {
+        fs.mkdirSync(portableDataPath, { recursive: true });
+      }
+      
+      // Set userData to portable location
+      // This must be done before app.whenReady()
+      app.setPath('userData', portableDataPath);
+      console.log('Portable build detected - using persistent data directory:', portableDataPath);
+    } catch (error) {
+      console.error('Failed to configure portable data directory:', error);
+      // Fall back to default userData location
+    }
+  } else if (!isSystemLocation && !isTempDir) {
+    // For non-portable packaged apps in non-system locations, use data dir next to exe
+    try {
+      const localDataPath = path.join(execDir, 'My Todo Data');
+      
+      if (!fs.existsSync(localDataPath)) {
+        fs.mkdirSync(localDataPath, { recursive: true });
+      }
+      
+      app.setPath('userData', localDataPath);
+      console.log('Using local data directory:', localDataPath);
+    } catch (error) {
+      console.error('Failed to configure local data directory:', error);
+    }
+  }
+}
 
 let mainWindow = null;
 let splashWindow = null;
 let tray = null;
+let originalPortableExePath = null; // Track original portable exe location
+
+// Configure auto-updater for portable apps
+autoUpdater.autoDownload = false; // Don't auto-download, let user choose
+autoUpdater.autoInstallOnAppQuit = true; // Auto-install on app quit after download
+
+// For portable apps, we need to track the original exe location
+// Portable exes extract to temp when run, but we need to update the original
+if (app.isPackaged) {
+  const execPath = process.execPath;
+  const execDir = path.dirname(execPath);
+  const os = require('os');
+  
+  // Check if we're running from temp (portable exe behavior)
+  const tempIndicators = [
+    path.join('Local', 'Temp'),
+    'AppData\\Local\\Temp',
+    'AppData/Local/Temp'
+  ];
+  const isTempDir = tempIndicators.some(indicator => 
+    execDir.includes(indicator) || execDir.toLowerCase().includes('temp')
+  );
+  
+  if (isTempDir) {
+    // We're running from temp, need to find/store original location
+    const portableExePathFile = path.join(app.getPath('userData'), 'portable-exe-path.json');
+    
+    try {
+      // Try to read stored original path
+      if (fs.existsSync(portableExePathFile)) {
+        const stored = JSON.parse(fs.readFileSync(portableExePathFile, 'utf8'));
+        if (stored.path && fs.existsSync(stored.path)) {
+          originalPortableExePath = stored.path;
+          console.log('Found original portable exe path:', originalPortableExePath);
+        }
+      }
+      
+      // If not found, try to detect from command line args or environment
+      // electron-builder portable exes pass the original path via process.argv
+      // Check if there's a way to get the original location
+      // For now, we'll rely on user to place the exe in a known location
+      // or we'll need to prompt them on first run
+    } catch (error) {
+      console.error('Failed to read portable exe path:', error);
+    }
+  } else {
+    // Not in temp, this might be the original location
+    originalPortableExePath = execPath;
+    // Store it for future reference
+    try {
+      const portableExePathFile = path.join(app.getPath('userData'), 'portable-exe-path.json');
+      fs.writeFileSync(portableExePathFile, JSON.stringify({ path: execPath }), 'utf8');
+    } catch (error) {
+      console.error('Failed to store portable exe path:', error);
+    }
+  }
+  
+  // Configure updater to use the original path if we found it
+  if (originalPortableExePath) {
+    // electron-updater will handle portable updates automatically
+    // but we need to ensure it knows where to install
+    console.log('Portable app detected, original exe:', originalPortableExePath);
+  }
+}
+
+// Update status tracking
+let updateStatus = {
+  available: false,
+  downloaded: false,
+  checking: false,
+  error: null,
+  info: null
+};
 
 // Window state file path
 const getWindowStatePath = () => {
@@ -74,34 +234,28 @@ const createSplashWindow = () => {
   const primaryDisplay = screen.getPrimaryDisplay();
   
   // Center splash screen on primary display
-  const splashWidth = 300;
-  const splashHeight = 200;
+  const splashWidth = 400;
+  const splashHeight = 500;
   const splashX = primaryDisplay.workArea.x + (primaryDisplay.workArea.width - splashWidth) / 2;
   const splashY = primaryDisplay.workArea.y + (primaryDisplay.workArea.height - splashHeight) / 2;
   
   splashWindow = new BrowserWindow({
     width: splashWidth,
     height: splashHeight,
-    x: splashX,
-    y: splashY,
+    x: Math.round(splashX),
+    y: Math.round(splashY),
     frame: false,
     transparent: false,
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
-    show: false, // Don't show until loaded
+    show: true, // Show immediately
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       backgroundThrottling: false,
     },
-    backgroundColor: '#1a1a2e', // Match splash background
-  });
-  
-  splashWindow.once('ready-to-show', () => {
-    if (splashWindow && !splashWindow.isDestroyed()) {
-      splashWindow.show();
-    }
+    backgroundColor: '#0a0e1a',
   });
   
   splashWindow.loadFile(path.join(__dirname, "splash.html"));
@@ -450,6 +604,52 @@ ipcMain.handle("open-external", async (event, url) => {
   }
 });
 
+// Auto-update handlers
+ipcMain.handle("check-for-updates", async () => {
+  try {
+    updateStatus.checking = true;
+    updateStatus.error = null;
+    await autoUpdater.checkForUpdates();
+    return { success: true };
+  } catch (error) {
+    updateStatus.checking = false;
+    updateStatus.error = error.message;
+    console.error("Failed to check for updates:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("download-update", async () => {
+  try {
+    if (updateStatus.available) {
+      await autoUpdater.downloadUpdate();
+      return { success: true };
+    }
+    return { success: false, error: "No update available" };
+  } catch (error) {
+    updateStatus.error = error.message;
+    console.error("Failed to download update:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("install-update", () => {
+  try {
+    if (updateStatus.downloaded) {
+      autoUpdater.quitAndInstall(false, true);
+      return { success: true };
+    }
+    return { success: false, error: "Update not downloaded" };
+  } catch (error) {
+    console.error("Failed to install update:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("get-update-status", () => {
+  return updateStatus;
+});
+
 ipcMain.handle("select-image", async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
     title: "Select Image",
@@ -516,7 +716,10 @@ if (!gotTheLock) {
     createSplashWindow();
     
     // Create main window (hidden initially) - async to not block
-    createWindow();
+    // Small delay to ensure splash screen paints first
+    setTimeout(() => {
+      createWindow();
+    }, 100);
 
     // Initialize settings (async, non-blocking)
     const settings = await loadSettings();
@@ -528,6 +731,16 @@ if (!gotTheLock) {
     } else {
         // Ensure OS setting matches preference
         app.setLoginItemSettings({ openAtLogin: settings.launchAtStartup });
+    }
+
+    // Check for updates on app start (only in production)
+    if (app.isPackaged) {
+      // Wait a bit before checking for updates to not slow down app startup
+      setTimeout(() => {
+        autoUpdater.checkForUpdates().catch(err => {
+          console.error("Auto-update check failed:", err);
+        });
+      }, 3000);
     }
 
     app.on("activate", async () => {
@@ -552,5 +765,91 @@ app.on("window-all-closed", (event) => {
 
 app.on("before-quit", () => {
   app.isQuitting = true;
+});
+
+// Auto-updater event handlers
+autoUpdater.on("checking-for-update", () => {
+  console.log("Checking for update...");
+  updateStatus.checking = true;
+  updateStatus.error = null;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-status", { ...updateStatus });
+  }
+});
+
+autoUpdater.on("update-available", (info) => {
+  console.log("Update available:", info.version);
+  updateStatus.available = true;
+  updateStatus.checking = false;
+  updateStatus.info = info;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-status", { ...updateStatus });
+  }
+});
+
+autoUpdater.on("update-not-available", (info) => {
+  console.log("Update not available. Current version is latest.");
+  updateStatus.available = false;
+  updateStatus.checking = false;
+  updateStatus.info = info;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-status", { ...updateStatus });
+  }
+});
+
+autoUpdater.on("error", (err) => {
+  console.error("Error in auto-updater:", err);
+  updateStatus.error = err.message;
+  updateStatus.checking = false;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-status", { ...updateStatus });
+  }
+});
+
+autoUpdater.on("download-progress", (progressObj) => {
+  const message = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
+  console.log(message);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-download-progress", progressObj);
+  }
+});
+
+autoUpdater.on("update-downloaded", (info) => {
+  console.log("Update downloaded:", info.version);
+  updateStatus.downloaded = true;
+  updateStatus.info = info;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-status", { ...updateStatus });
+    
+    // For portable apps, explain the update process
+    const isPortable = originalPortableExePath !== null || 
+                       process.execPath.toLowerCase().includes('temp');
+    
+    let detailMessage = `Version ${info.version} has been downloaded.`;
+    if (isPortable) {
+      detailMessage += `\n\nThe application will close and the portable executable will be updated.`;
+      detailMessage += `\nPlease restart the application manually after the update completes.`;
+    } else {
+      detailMessage += `\nThe application will restart to apply the update.`;
+    }
+    
+    // Show notification dialog
+    dialog.showMessageBox(mainWindow, {
+      type: "info",
+      title: "Update Ready",
+      message: "Update downloaded successfully",
+      detail: detailMessage,
+      buttons: ["Install Update", "Later"],
+      defaultId: 0,
+      cancelId: 1
+    }).then((result) => {
+      if (result.response === 0) {
+        // For portable apps, quitAndInstall will replace the original portable exe
+        // The user will need to manually restart it
+        // isSilent=false, isForceRunAfter=true means it will try to restart
+        autoUpdater.quitAndInstall(false, true);
+      }
+    });
+  }
 });
 
