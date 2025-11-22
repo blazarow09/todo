@@ -177,6 +177,18 @@
   background: rgba(239, 68, 68, 0.2);
 }
 
+.due-date.warning {
+  color: #f59e0b;
+  background: rgba(254, 243, 199, 0.6);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  font-weight: 600;
+}
+
+[data-theme="dark"] .due-date.warning {
+  background: rgba(245, 158, 11, 0.2);
+}
+
 .todo-actions-row {
   display: flex;
   align-items: center;

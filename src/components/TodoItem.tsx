@@ -150,7 +150,40 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
     }
   };
 
-  const isOverdue = todo.dueDate && !todo.done && new Date(todo.dueDate) < new Date();
+  // Calculate due date status
+  const getDueDateStatus = () => {
+    if (!todo.dueDate || todo.done) return null;
+
+    // Parse date string as local time (YYYY-MM-DD or YYYY-MM-DDTHH:mm format)
+    const [datePart, timePart] = todo.dueDate.split('T');
+    const [yearStr, monthStr, dayStr] = datePart.split('-');
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10) - 1; // Month is 0-indexed
+    const day = parseInt(dayStr, 10);
+
+    let hour = 0;
+    let minute = 0;
+    if (timePart) {
+      const [hourStr, minuteStr] = timePart.split(':');
+      hour = parseInt(hourStr, 10) || 0;
+      minute = parseInt(minuteStr, 10) || 0;
+    }
+
+    const dueDate = new Date(year, month, day, hour, minute);
+    const now = new Date();
+    const diffMs = dueDate.getTime() - now.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+    if (diffMs < 0) {
+      return 'overdue'; // Past due date
+    } else if (diffDays <= 1) {
+      return 'warning'; // Within 1 day
+    }
+    return 'normal'; // More than 1 day away
+  };
+
+  const dueDateStatus = getDueDateStatus();
+  const isOverdue = dueDateStatus === 'overdue';
   const priorityColors = {
     high: '#ef4444',
     medium: '#f59e0b',
@@ -347,7 +380,7 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
             <span className="label-badge">{todo.label}</span>
           )}
           {todo.dueDate && (
-            <span className={`due-date ${isOverdue ? 'overdue' : ''}`}>
+            <span className={`due-date ${dueDateStatus ? dueDateStatus : ''}`}>
               {(() => {
                 // Parse date string as local time (YYYY-MM-DD or YYYY-MM-DDTHH:mm format)
                 const [datePart, timePart] = todo.dueDate.split('T');
