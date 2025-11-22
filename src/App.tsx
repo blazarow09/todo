@@ -25,53 +25,9 @@ const SELECTED_FOLDER_KEY = "todo_selected_folder";
 const ALWAYS_ON_TOP_KEY = "todo_always_on_top";
 
 export default function App() {
-  const [todos, setTodos] = useState<Todo[]>(() => {
-    // Optimize: Use try-catch only around JSON.parse, check for null first
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-
-    try {
-      const loaded = JSON.parse(raw);
-      // Use for loop instead of map for better performance with large arrays
-      const result: Todo[] = [];
-      for (let i = 0; i < loaded.length; i++) {
-        const todo = loaded[i];
-        result.push({
-          ...todo,
-          priority: todo.priority || 'medium',
-          label: todo.label || todo.category || '',
-          folderId: todo.folderId || null,
-          createdAt: todo.createdAt || todo.id,
-        });
-      }
-      return result;
-    } catch (e) {
-      console.error('Failed to load todos:', e);
-      return [];
-    }
-  });
-
-  const [folders, setFolders] = useState<Folder[]>(() => {
-    const foldersRaw = localStorage.getItem(FOLDERS_KEY);
-    let loadedFolders: Folder[] = [];
-    if (foldersRaw) {
-      try {
-        loadedFolders = JSON.parse(foldersRaw);
-      } catch (e) {
-        console.error('Failed to load folders:', e);
-      }
-    }
-    const hasUncategorized = loadedFolders.some((f: Folder) => f.id === 'uncategorized');
-    if (!hasUncategorized) {
-      return [{
-        id: 'uncategorized',
-        name: 'Uncategorized',
-        collapsed: false,
-        order: 0
-      }, ...loadedFolders];
-    }
-    return loadedFolders;
-  });
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   const [input, setInput] = useState("");
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
@@ -154,14 +110,221 @@ export default function App() {
     }
   }, []);
 
-  // Save todos to localStorage
+  // Load data from files on mount and handle migration
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-  }, [todos]);
+    const loadData = async () => {
+      try {
+        const electronAPI = (window as any).electronAPI;
+        if (!electronAPI) {
+          // Not in Electron, use localStorage as fallback
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            try {
+              const loaded = JSON.parse(raw);
+              const result: Todo[] = [];
+              for (let i = 0; i < loaded.length; i++) {
+                const todo = loaded[i];
+                result.push({
+                  ...todo,
+                  priority: todo.priority || 'medium',
+                  label: todo.label || todo.category || '',
+                  folderId: todo.folderId || null,
+                  createdAt: todo.createdAt || todo.id,
+                });
+              }
+              setTodos(result);
+            } catch (e) {
+              console.error('Failed to load todos:', e);
+            }
+          }
 
-  // Save folders to localStorage (ensure Uncategorized always exists)
+          const foldersRaw = localStorage.getItem(FOLDERS_KEY);
+          if (foldersRaw) {
+            try {
+              const loadedFolders = JSON.parse(foldersRaw);
+              const hasUncategorized = loadedFolders.some((f: Folder) => f.id === 'uncategorized');
+              setFolders(hasUncategorized ? loadedFolders : [{
+                id: 'uncategorized',
+                name: 'Uncategorized',
+                collapsed: false,
+                order: 0
+              }, ...loadedFolders]);
+            } catch (e) {
+              console.error('Failed to load folders:', e);
+            }
+          }
+          setIsDataLoaded(true);
+          return;
+        }
+
+        // Load from files
+        const [loadedTodos, loadedFolders] = await Promise.all([
+          electronAPI.loadTodos(),
+          electronAPI.loadFolders()
+        ]);
+
+        // Check if we need to migrate from localStorage
+        const hasLocalStorageData = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(FOLDERS_KEY);
+        const hasFileData = loadedTodos || loadedFolders;
+
+        if (hasLocalStorageData && !hasFileData) {
+          // Migrate from localStorage to files
+          console.log('Migrating data from localStorage to files...');
+          const todosRaw = localStorage.getItem(STORAGE_KEY);
+          const foldersRaw = localStorage.getItem(FOLDERS_KEY);
+          
+          let todosToMigrate: Todo[] = [];
+          if (todosRaw) {
+            try {
+              const loaded = JSON.parse(todosRaw);
+              todosToMigrate = loaded.map((todo: any) => ({
+                ...todo,
+                priority: todo.priority || 'medium',
+                label: todo.label || todo.category || '',
+                folderId: todo.folderId || null,
+                createdAt: todo.createdAt || todo.id,
+              }));
+            } catch (e) {
+              console.error('Failed to parse todos for migration:', e);
+            }
+          }
+
+          let foldersToMigrate: Folder[] = [];
+          if (foldersRaw) {
+            try {
+              foldersToMigrate = JSON.parse(foldersRaw);
+            } catch (e) {
+              console.error('Failed to parse folders for migration:', e);
+            }
+          }
+
+          // Migrate other settings
+          const themeToMigrate = localStorage.getItem(THEME_KEY);
+          const alwaysOnTopToMigrate = localStorage.getItem(ALWAYS_ON_TOP_KEY);
+          const selectedFolderToMigrate = localStorage.getItem(SELECTED_FOLDER_KEY);
+          const backgroundImageToMigrate = localStorage.getItem("todo_background_image");
+          const backgroundColorToMigrate = localStorage.getItem("todo_background_color");
+          const overlayOpacityToMigrate = localStorage.getItem("todo_background_overlay_opacity");
+
+          await electronAPI.migrateFromLocalStorage({
+            todos: todosToMigrate,
+            folders: foldersToMigrate,
+            theme: themeToMigrate,
+            alwaysOnTop: alwaysOnTopToMigrate !== null ? alwaysOnTopToMigrate === 'true' : undefined,
+            selectedFolder: selectedFolderToMigrate,
+            backgroundImage: backgroundImageToMigrate,
+            backgroundColor: backgroundColorToMigrate,
+            overlayOpacity: overlayOpacityToMigrate ? parseFloat(overlayOpacityToMigrate) : undefined,
+          });
+
+          // Reload from files after migration
+          const [migratedTodos, migratedFolders] = await Promise.all([
+            electronAPI.loadTodos(),
+            electronAPI.loadFolders()
+          ]);
+
+          if (migratedTodos) {
+            setTodos(migratedTodos);
+          } else if (todosToMigrate.length > 0) {
+            setTodos(todosToMigrate);
+          }
+
+          if (migratedFolders) {
+            const hasUncategorized = migratedFolders.some((f: Folder) => f.id === 'uncategorized');
+            setFolders(hasUncategorized ? migratedFolders : [{
+              id: 'uncategorized',
+              name: 'Uncategorized',
+              collapsed: false,
+              order: 0
+            }, ...migratedFolders]);
+          } else if (foldersToMigrate.length > 0) {
+            const hasUncategorized = foldersToMigrate.some((f: Folder) => f.id === 'uncategorized');
+            setFolders(hasUncategorized ? foldersToMigrate : [{
+              id: 'uncategorized',
+              name: 'Uncategorized',
+              collapsed: false,
+              order: 0
+            }, ...foldersToMigrate]);
+          }
+
+          // Update other settings from migration
+          if (themeToMigrate && (themeToMigrate === 'light' || themeToMigrate === 'dark')) {
+            setTheme(themeToMigrate);
+          }
+          if (alwaysOnTopToMigrate !== null) {
+            setAlwaysOnTop(alwaysOnTopToMigrate === 'true');
+          }
+          if (selectedFolderToMigrate) {
+            setSelectedFolderId(selectedFolderToMigrate === 'uncategorized' ? null : selectedFolderToMigrate);
+          }
+          if (backgroundImageToMigrate) {
+            setBackgroundImage(backgroundImageToMigrate);
+          }
+          if (backgroundColorToMigrate) {
+            setBackgroundColor(backgroundColorToMigrate);
+          }
+          if (overlayOpacityToMigrate) {
+            const opacity = parseFloat(overlayOpacityToMigrate);
+            if (!isNaN(opacity) && opacity >= 0 && opacity <= 1) {
+              setOverlayOpacity(opacity);
+            }
+          }
+        } else {
+          // Load from files (normal case)
+          if (loadedTodos) {
+            setTodos(loadedTodos);
+          }
+
+          if (loadedFolders) {
+            const hasUncategorized = loadedFolders.some((f: Folder) => f.id === 'uncategorized');
+            setFolders(hasUncategorized ? loadedFolders : [{
+              id: 'uncategorized',
+              name: 'Uncategorized',
+              collapsed: false,
+              order: 0
+            }, ...loadedFolders]);
+          } else {
+            // Ensure Uncategorized folder exists
+            setFolders([{
+              id: 'uncategorized',
+              name: 'Uncategorized',
+              collapsed: false,
+              order: 0
+            }]);
+          }
+        }
+
+        setIsDataLoaded(true);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        setIsDataLoaded(true);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Save todos to files
   useEffect(() => {
-    if (folders.length > 0) {
+    if (!isDataLoaded) return; // Don't save during initial load
+
+    const electronAPI = (window as any).electronAPI;
+    if (electronAPI?.saveTodos) {
+      electronAPI.saveTodos(todos).catch((err: any) => {
+        console.error('Failed to save todos:', err);
+      });
+    } else {
+      // Fallback to localStorage if not in Electron
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+    }
+  }, [todos, isDataLoaded]);
+
+  // Save folders to files (ensure Uncategorized always exists)
+  useEffect(() => {
+    if (!isDataLoaded) return; // Don't save during initial load
+
+    const electronAPI = (window as any).electronAPI;
+    if (electronAPI?.saveFolders) {
       const hasUncategorized = folders.some(f => f.id === 'uncategorized');
       const foldersToSave = hasUncategorized ? folders : [
         {
@@ -172,9 +335,26 @@ export default function App() {
         },
         ...folders
       ];
-      localStorage.setItem(FOLDERS_KEY, JSON.stringify(foldersToSave));
+      electronAPI.saveFolders(foldersToSave).catch((err: any) => {
+        console.error('Failed to save folders:', err);
+      });
+    } else {
+      // Fallback to localStorage if not in Electron
+      if (folders.length > 0) {
+        const hasUncategorized = folders.some(f => f.id === 'uncategorized');
+        const foldersToSave = hasUncategorized ? folders : [
+          {
+            id: 'uncategorized',
+            name: 'Uncategorized',
+            collapsed: false,
+            order: 0
+          },
+          ...folders
+        ];
+        localStorage.setItem(FOLDERS_KEY, JSON.stringify(foldersToSave));
+      }
     }
-  }, [folders]);
+  }, [folders, isDataLoaded]);
 
   // Save background settings
   useEffect(() => {

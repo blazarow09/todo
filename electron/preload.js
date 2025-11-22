@@ -39,5 +39,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("schedule-notification", { id, title, body, timestamp }),
   cancelNotification: (id) => ipcRenderer.invoke("cancel-notification", id),
   cancelAllNotifications: () => ipcRenderer.invoke("cancel-all-notifications"),
+  // Storage APIs
+  loadTodos: () => ipcRenderer.invoke("load-todos"),
+  saveTodos: (todos) => ipcRenderer.invoke("save-todos", todos),
+  loadFolders: () => ipcRenderer.invoke("load-folders"),
+  saveFolders: (folders) => ipcRenderer.invoke("save-folders", folders),
+  migrateFromLocalStorage: (data) => ipcRenderer.invoke("migrate-from-localstorage", data),
 });
 

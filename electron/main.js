@@ -75,6 +75,16 @@ const getSettingsPath = () => {
   return path.join(app.getPath('userData'), 'settings.json');
 };
 
+// Todos file path
+const getTodosPath = () => {
+  return path.join(app.getPath('userData'), 'todos.json');
+};
+
+// Folders file path
+const getFoldersPath = () => {
+  return path.join(app.getPath('userData'), 'folders.json');
+};
+
 // Load settings (async for better performance)
 const loadSettings = async () => {
   try {
@@ -96,6 +106,54 @@ const saveSettings = (settings) => {
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
   } catch (error) {
     console.error('Failed to save settings:', error);
+  }
+};
+
+// Load todos from file
+const loadTodos = async () => {
+  try {
+    const todosPath = getTodosPath();
+    if (fs.existsSync(todosPath)) {
+      const data = await fs.promises.readFile(todosPath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Failed to load todos:', error);
+  }
+  return null;
+};
+
+// Save todos to file
+const saveTodos = (todos) => {
+  try {
+    const todosPath = getTodosPath();
+    fs.writeFileSync(todosPath, JSON.stringify(todos, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Failed to save todos:', error);
+  }
+};
+
+// Load folders from file
+const loadFolders = async () => {
+  try {
+    const foldersPath = getFoldersPath();
+    if (fs.existsSync(foldersPath)) {
+      const data = await fs.promises.readFile(foldersPath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Failed to load folders:', error);
+  }
+  return null;
+};
+
+// Save folders to file
+const saveFolders = (folders) => {
+  try {
+    const foldersPath = getFoldersPath();
+    fs.writeFileSync(foldersPath, JSON.stringify(folders, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Failed to save folders:', error);
   }
 };
 
@@ -799,6 +857,58 @@ ipcMain.handle("set-launch-at-startup", async (event, value) => {
   saveSettings(settings);
   app.setLoginItemSettings({ openAtLogin: value });
   return true;
+});
+
+// Todos storage handlers
+ipcMain.handle("load-todos", async () => {
+  return await loadTodos();
+});
+
+ipcMain.handle("save-todos", async (event, todos) => {
+  saveTodos(todos);
+  return { success: true };
+});
+
+// Folders storage handlers
+ipcMain.handle("load-folders", async () => {
+  return await loadFolders();
+});
+
+ipcMain.handle("save-folders", async (event, folders) => {
+  saveFolders(folders);
+  return { success: true };
+});
+
+// Migration handler - reads from localStorage (via renderer) and saves to files
+ipcMain.handle("migrate-from-localstorage", async (event, { todos, folders, theme, alwaysOnTop, selectedFolder, backgroundImage, backgroundColor, overlayOpacity }) => {
+  try {
+    // Save todos if they exist
+    if (todos && Array.isArray(todos) && todos.length > 0) {
+      saveTodos(todos);
+      console.log(`Migrated ${todos.length} todos from localStorage`);
+    }
+    
+    // Save folders if they exist
+    if (folders && Array.isArray(folders) && folders.length > 0) {
+      saveFolders(folders);
+      console.log(`Migrated ${folders.length} folders from localStorage`);
+    }
+    
+    // Save other settings
+    const settings = await loadSettings();
+    if (theme) settings.theme = theme;
+    if (alwaysOnTop !== undefined) settings.alwaysOnTop = alwaysOnTop;
+    if (selectedFolder !== undefined) settings.selectedFolder = selectedFolder;
+    if (backgroundImage !== undefined) settings.backgroundImage = backgroundImage;
+    if (backgroundColor !== undefined) settings.backgroundColor = backgroundColor;
+    if (overlayOpacity !== undefined) settings.overlayOpacity = overlayOpacity;
+    saveSettings(settings);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Migration failed:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // Set app name for notifications (must be set before app is ready)
