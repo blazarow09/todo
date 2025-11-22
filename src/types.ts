@@ -10,6 +10,9 @@ export type Todo = {
   attachments?: Attachment[];
   isArchived?: boolean;
   createdAt: number;
+  notificationEnabled?: boolean;
+  notificationType?: 'before' | 'after' | 'at';
+  notificationDuration?: number; // in minutes
 };
 
 export type Attachment = {

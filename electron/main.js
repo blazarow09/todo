@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain, Tray, Menu, dialog, shell } = require("electron");
+const { app, BrowserWindow, screen, ipcMain, Tray, Menu, dialog, shell, Notification } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
 const fs = require("fs");
@@ -702,6 +702,90 @@ ipcMain.handle("select-image", async () => {
   }
   return { success: false, canceled: true };
 });
+
+// Notification handlers
+const scheduledNotifications = new Map();
+
+ipcMain.handle("schedule-notification", (event, { id, title, body, timestamp }) => {
+  try {
+    // Cancel existing notification if any
+    if (scheduledNotifications.has(id)) {
+      clearTimeout(scheduledNotifications.get(id));
+      scheduledNotifications.delete(id);
+    }
+
+    const now = Date.now();
+    const delay = timestamp - now;
+
+    if (delay <= 0) {
+      // Show immediately if time has passed
+      showNotification(title, body);
+      return { success: true };
+    }
+
+    // Schedule notification
+    const timeoutId = setTimeout(() => {
+      showNotification(title, body);
+      scheduledNotifications.delete(id);
+    }, delay);
+
+    scheduledNotifications.set(id, timeoutId);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to schedule notification:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("cancel-notification", (event, id) => {
+  try {
+    if (scheduledNotifications.has(id)) {
+      clearTimeout(scheduledNotifications.get(id));
+      scheduledNotifications.delete(id);
+      return { success: true };
+    }
+    return { success: false, error: "Notification not found" };
+  } catch (error) {
+    console.error("Failed to cancel notification:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("cancel-all-notifications", () => {
+  try {
+    scheduledNotifications.forEach((timeoutId) => {
+      clearTimeout(timeoutId);
+    });
+    scheduledNotifications.clear();
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to cancel all notifications:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+function showNotification(title, body) {
+  // Request permission for notifications (Windows 10+)
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title: title || "My Todo",
+      body: body || "You have a task reminder",
+      icon: path.join(__dirname, "assets", "tasks-icon.ico"),
+      silent: false,
+    });
+
+    notification.on("click", () => {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+
+    notification.show();
+  } else {
+    console.warn("Notifications are not supported on this system");
+  }
+}
 
 // Launch at startup handlers
 ipcMain.handle("get-launch-at-startup", async () => {

@@ -8,6 +8,7 @@ import { Todo, FilterType, Theme, Folder, Attachment } from "./types";
 import { useUndoRedo } from "./hooks/useUndoRedo";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { exportTodos, importTodos } from "./utils/storage";
+import { scheduleAllNotifications } from "./utils/notifications";
 import TodoItem from "./components/TodoItem";
 import FilterBar from "./components/FilterBar";
 import SearchBar from "./components/SearchBar";
@@ -81,6 +82,9 @@ export default function App() {
   const [filter, setFilter] = useState<FilterType>('active');
   const [selectedLabel, setSelectedLabel] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [notificationEnabled, setNotificationEnabled] = useState(false);
+  const [notificationType, setNotificationType] = useState<'before' | 'after' | 'at'>('before');
+  const [notificationDuration, setNotificationDuration] = useState(15);
 
   // Initialize theme from localStorage immediately to prevent overwriting on mount
   const getInitialTheme = (): Theme => {
@@ -208,6 +212,15 @@ export default function App() {
     localStorage.setItem(SELECTED_FOLDER_KEY, folderIdToSave);
   }, [selectedFolderId]);
 
+  // Schedule notifications for todos with notification settings
+  useEffect(() => {
+    if (window.electronAPI) {
+      scheduleAllNotifications(todos).catch(err => {
+        console.error('Failed to schedule notifications:', err);
+      });
+    }
+  }, [todos]);
+
   // Auto-expand folders with search matches
   useEffect(() => {
     if (!searchQuery.trim()) return;
@@ -287,6 +300,9 @@ export default function App() {
         folderId: folderToUse,
         dueDate: dueDate || undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
+        notificationEnabled: notificationEnabled || undefined,
+        notificationType: notificationEnabled ? notificationType : undefined,
+        notificationDuration: notificationEnabled && notificationType !== 'at' ? notificationDuration : undefined,
       };
       const newTodos = todos.map(t => t.id === editingTodo.id ? updatedTodo : t);
       setTodos(newTodos);
@@ -304,6 +320,9 @@ export default function App() {
         dueDate: dueDate || undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
         createdAt: Date.now(),
+        notificationEnabled: notificationEnabled || undefined,
+        notificationType: notificationEnabled ? notificationType : undefined,
+        notificationDuration: notificationEnabled && notificationType !== 'at' ? notificationDuration : undefined,
       };
       const newTodos = [...todos, newTodo];
       setTodos(newTodos);
@@ -315,11 +334,14 @@ export default function App() {
     setDueDate("");
     setAttachments([]);
     setPriority('medium');
+    setNotificationEnabled(false);
+    setNotificationType('before');
+    setNotificationDuration(15);
     setShowTodoModal(false);
     setTargetFolderId(null);
     setIsDragOverModal(false);
     // Keep the selected folder (don't reset) - it's saved to localStorage
-  }, [input, priority, label, dueDate, attachments, selectedFolderId, todos, addToHistory, editingTodo]);
+  }, [input, priority, label, dueDate, attachments, selectedFolderId, todos, addToHistory, editingTodo, notificationEnabled, notificationType, notificationDuration]);
 
   const updateTodo = useCallback((id: number, updates: Partial<Todo>) => {
     const newTodos = todos.map(t => t.id === id ? { ...t, ...updates } : t);
@@ -634,6 +656,9 @@ export default function App() {
     setDueDate(todo.dueDate || '');
     setAttachments(todo.attachments || []);
     setTargetFolderId(todo.folderId || null);
+    setNotificationEnabled(todo.notificationEnabled || false);
+    setNotificationType(todo.notificationType || 'before');
+    setNotificationDuration(todo.notificationDuration || 15);
     setShowTodoModal(true);
   }, []);
 
@@ -647,6 +672,9 @@ export default function App() {
     setPriority('medium');
     setTargetFolderId(null);
     setIsDragOverModal(false);
+    setNotificationEnabled(false);
+    setNotificationType('before');
+    setNotificationDuration(15);
   }, []);
 
   const handleFileSelect = useCallback((files: FileList | null) => {
@@ -1005,6 +1033,9 @@ export default function App() {
           setDueDate("");
           setAttachments([]);
           setPriority('medium');
+          setNotificationEnabled(false);
+          setNotificationType('before');
+          setNotificationDuration(15);
           setShowTodoModal(true);
         }}
         title="Add new todo"
@@ -1053,6 +1084,23 @@ export default function App() {
                 />
               </div>
               <div className="input-options">
+                <div className="input-option-group folder-group">
+                  <label className="input-option-label">Folder</label>
+                  <CustomSelect
+                    value={targetFolderId || selectedFolderId || 'uncategorized'}
+                    options={foldersWithUncategorized.map(f => ({
+                      value: f.id,
+                      label: f.name
+                    }))}
+                    onChange={(val) => {
+                      const folderId = val === 'uncategorized' ? null : val;
+                      setTargetFolderId(folderId);
+                      setSelectedFolderId(folderId);
+                    }}
+                    placeholder="Folder"
+                    className="folder-select"
+                  />
+                </div>
                 <div className="input-option-group priority-group">
                   <label className="input-option-label">Priority</label>
                   <CustomSelect
@@ -1080,31 +1128,67 @@ export default function App() {
                     className="label-input"
                   />
                 </div>
+              </div>
+              <div className="input-option-row date-row">
                 <div className="input-option-group date-group">
                   <label className="input-option-label">Due date</label>
-                  <DatePicker
-                    value={dueDate}
-                    onChange={setDueDate}
-                    placeholder="Due date"
-                    className="date-input"
-                  />
-                </div>
-                <div className="input-option-group folder-group">
-                  <label className="input-option-label">Folder</label>
-                  <CustomSelect
-                    value={targetFolderId || selectedFolderId || 'uncategorized'}
-                    options={foldersWithUncategorized.map(f => ({
-                      value: f.id,
-                      label: f.name
-                    }))}
-                    onChange={(val) => {
-                      const folderId = val === 'uncategorized' ? null : val;
-                      setTargetFolderId(folderId);
-                      setSelectedFolderId(folderId);
-                    }}
-                    placeholder="Folder"
-                    className="folder-select"
-                  />
+                  <div className="date-input-row">
+                    <DatePicker
+                      value={dueDate}
+                      onChange={setDueDate}
+                      placeholder="Due date"
+                      className="date-input"
+                    />
+                    <div className="notification-controls">
+                      <label className="notification-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={notificationEnabled}
+                          onChange={(e) => {
+                            setNotificationEnabled(e.target.checked);
+                            if (!e.target.checked) {
+                              setNotificationType('before');
+                              setNotificationDuration(15);
+                            }
+                          }}
+                          className="notification-checkbox"
+                        />
+                        <span>Notify</span>
+                      </label>
+                      {notificationEnabled && (
+                        <>
+                          <CustomSelect
+                            value={String(notificationDuration)}
+                            options={[
+                              { value: '5', label: '5 min' },
+                              { value: '15', label: '15 min' },
+                              { value: '30', label: '30 min' },
+                              { value: '60', label: '1 hour' },
+                              { value: '120', label: '2 hours' },
+                              { value: '240', label: '4 hours' },
+                              { value: '480', label: '8 hours' },
+                              { value: '1440', label: '1 day' }
+                            ]}
+                            onChange={(val) => setNotificationDuration(parseInt(val, 10))}
+                            placeholder="Duration"
+                            className="notification-duration-select"
+                            disabled={notificationType === 'at'}
+                          />
+                          <CustomSelect
+                            value={notificationType}
+                            options={[
+                              { value: 'before', label: 'before' },
+                              { value: 'at', label: 'at the time' },
+                              { value: 'after', label: 'after' }
+                            ]}
+                            onChange={(val) => setNotificationType(val as 'before' | 'at' | 'after')}
+                            placeholder="When"
+                            className="notification-type-select"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div
@@ -1204,6 +1288,9 @@ export default function App() {
                                     setDueDate("");
                                     setAttachments([]);
                                     setPriority('medium');
+                                    setNotificationEnabled(false);
+                                    setNotificationType('before');
+                                    setNotificationDuration(15);
                                     setShowTodoModal(true);
                                   }}
                                   title="Add todo to this folder"
@@ -1250,6 +1337,9 @@ export default function App() {
                             setDueDate("");
                             setAttachments([]);
                             setPriority('medium');
+                            setNotificationEnabled(false);
+                            setNotificationType('before');
+                            setNotificationDuration(15);
                             setShowTodoModal(true);
                           }}
                           title="Add todo to this folder"
@@ -1265,6 +1355,9 @@ export default function App() {
                               setDueDate("");
                               setAttachments([]);
                               setPriority('medium');
+                              setNotificationEnabled(false);
+                              setNotificationType('before');
+                              setNotificationDuration(15);
                               setShowTodoModal(true);
                             }}
                             title="Add todo to this folder"

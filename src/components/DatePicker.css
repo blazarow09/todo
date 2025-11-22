@@ -3,9 +3,17 @@
   min-width: 140px;
 }
 
+.date-picker-button-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
 .date-picker-button {
   width: 100%;
   padding: 6px 12px;
+  padding-right: 32px; /* Make room for clear button */
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--input-bg);
@@ -33,6 +41,10 @@
   border-color: #667eea;
 }
 
+.date-picker.open .date-picker-button-wrapper {
+  /* Keep wrapper styling consistent */
+}
+
 .date-icon {
   flex-shrink: 0;
   color: var(--text-secondary);
@@ -43,6 +55,8 @@
 }
 
 .clear-date {
+  position: absolute;
+  right: 8px;
   width: 18px;
   height: 18px;
   border: none;
@@ -57,7 +71,7 @@
   transition: all 0.2s;
   padding: 0;
   flex-shrink: 0;
-  margin-left: auto;
+  z-index: 1;
 }
 
 .clear-date:hover {
@@ -75,7 +89,7 @@
   box-shadow: 0 8px 24px var(--shadow);
   z-index: 1000;
   padding: 12px;
-  width: 260px;
+  width: 280px;
   animation: slideDown 0.2s ease;
 }
 
@@ -165,13 +179,13 @@
 }
 
 .calendar-day.selected {
-  background: var(--gradient);
+  background: #667eea;
   color: white;
   font-weight: 600;
 }
 
 .calendar-day.selected.today {
-  background: var(--gradient);
+  background: #667eea;
   color: white;
 }
 
@@ -179,12 +193,99 @@
   cursor: default;
 }
 
+.time-picker {
+  padding: 10px 0;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 10px;
+}
+
+.time-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.time-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.time-input-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.time-input {
+  width: 50px;
+  padding: 4px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.time-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.time-input::-webkit-inner-spin-button,
+.time-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.time-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.time-arrow {
+  width: 24px;
+  height: 18px;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  transition: all 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+
+.time-arrow:hover {
+  background: var(--bg-tertiary);
+  color: #667eea;
+}
+
+.time-separator {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding-bottom: 8px;
+}
+
 .calendar-footer {
   display: flex;
   justify-content: space-between;
   gap: 6px;
   padding-top: 8px;
-  border-top: 1px solid var(--border-color);
 }
 
 .footer-btn {
@@ -206,13 +307,13 @@
 }
 
 .today-btn {
-  background: var(--gradient);
+  background: #667eea;
   color: white;
   border: none;
 }
 
 .today-btn:hover {
-  opacity: 0.9;
+  background: #5568d3;
   transform: translateY(-1px);
 }
 

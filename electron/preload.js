@@ -34,5 +34,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.removeAllListeners("update-status");
     ipcRenderer.removeAllListeners("update-download-progress");
   },
+  // Notification APIs
+  scheduleNotification: (id, title, body, timestamp) => 
+    ipcRenderer.invoke("schedule-notification", { id, title, body, timestamp }),
+  cancelNotification: (id) => ipcRenderer.invoke("cancel-notification", id),
+  cancelAllNotifications: () => ipcRenderer.invoke("cancel-all-notifications"),
 });
 

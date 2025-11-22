@@ -352,8 +352,17 @@ body {
     display: flex;
     flex-direction: row;
     gap: 12px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    margin-bottom: 12px;
+}
+
+.input-option-row {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
     margin-bottom: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
 }
 
 .input-option-group {
@@ -365,23 +374,75 @@ body {
 }
 
 .input-option-group.priority-group {
-    min-width: 100px;
-    flex: 0 1 auto;
+    flex: 1;
+    min-width: 0;
 }
 
 .input-option-group.label-group {
-    min-width: 120px;
-    flex: 1 1 auto;
+    flex: 1;
+    min-width: 0;
 }
 
 .input-option-group.date-group {
-    min-width: 150px;
+    flex: 1 1 100%;
+    min-width: 0;
+}
+
+.date-row {
+    flex-wrap: nowrap;
+}
+
+.date-input-row {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.date-input-row .date-input {
     flex: 0 1 auto;
+    min-width: 140px;
 }
 
 .input-option-group.folder-group {
-    min-width: 130px;
-    flex: 1 1 auto;
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-controls {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-primary);
+    user-select: none;
+    white-space: nowrap;
+}
+
+.notification-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #667eea;
+    flex-shrink: 0;
+}
+
+.notification-type-select,
+.notification-duration-select {
+    min-width: 100px;
+    flex-shrink: 0;
 }
 
 .input-option-label {

@@ -12,6 +12,7 @@ type CustomSelectProps = {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 };
 
 export default function CustomSelect({ 
@@ -19,7 +20,8 @@ export default function CustomSelect({
   options, 
   onChange, 
   placeholder = "Select...",
-  className = ""
+  className = "",
+  disabled = false
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef<HTMLDivElement>(null);
@@ -38,11 +40,12 @@ export default function CustomSelect({
   const selectedOption = options.find(opt => opt.value === value) || options[0];
 
   return (
-    <div className={`custom-select ${className} ${isOpen ? 'open' : ''}`} ref={selectRef}>
+    <div className={`custom-select ${className} ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`} ref={selectRef}>
       <button
         className="select-button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
         type="button"
+        disabled={disabled}
       >
         <span>{selectedOption?.label || placeholder}</span>
         <svg 
