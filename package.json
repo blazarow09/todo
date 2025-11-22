@@ -1,7 +1,7 @@
 {
   "name": "my-tasks",
   "private": true,
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "A modern desktop todo application with folder organization, labels, priorities, and more",
   "author": "blazarow",
   "main": "electron/main.js",
@@ -43,7 +43,7 @@
   },
   "build": {
     "appId": "com.todo.widget",
-    "productName": "My Todo",
+    "productName": "My Tasks",
     "directories": {
       "buildResources": "build",
       "output": "release"
@@ -71,7 +71,7 @@
       "extraResources": []
     },
     "portable": {
-      "artifactName": "${productName}-${version}-portable.${ext}"
+      "artifactName": "${productName}.${ext}"
     },
     "asar": true,
     "compression": "maximum",
