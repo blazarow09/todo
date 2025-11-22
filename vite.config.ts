@@ -10,7 +10,7 @@ export default defineConfig({
   },
   base: "./",
   build: {
-    emptyOutDir: false, // Don't clean dist directory to avoid conflicts with electron-builder
+    emptyOutDir: true, // Safe now that electron-builder outputs to release/
     // Production optimizations
     minify: "esbuild", // Faster than terser
     sourcemap: false, // Disable sourcemaps for faster builds

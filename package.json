@@ -1,7 +1,7 @@
 {
   "name": "my-tasks",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.5.4",
   "description": "A modern desktop todo application with folder organization, labels, priorities, and more",
   "author": "blazarow",
   "main": "electron/main.js",
@@ -24,8 +24,10 @@
     "@hello-pangea/dnd": "^18.0.1",
     "@iconify/react": "^6.0.2",
     "electron-updater": "^6.6.2",
+    "fs-extra": "^11.2.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "universalify": "^2.0.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
@@ -43,11 +45,14 @@
     "appId": "com.todo.widget",
     "productName": "My Todo",
     "directories": {
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "release"
     },
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "node_modules/**/*",
+      "node_modules/.pnpm/**/*",
       "package.json",
       "!**/locales",
       "!**/locales/**"
