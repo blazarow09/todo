@@ -108,8 +108,9 @@
   color: #ef4444;
 }
 
-.folder-content {
-  padding-left: 8px;
+[data-theme="dark"] .folder-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
 }
 
 .folder-empty {
@@ -140,6 +141,18 @@
   transform: scale(1.1);
 }
 
+.folder-add-todo-row {
+  padding: 8px 20px;
+  margin-top: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-radius: 4px;
+}
+
+.folder-add-todo-row:hover {
+  background-color: var(--bg-secondary);
+}
+
 .folder-add-todo-btn-inline {
   width: 20px;
   height: 20px;
@@ -153,11 +166,12 @@
   justify-content: center;
   transition: all 0.2s;
   padding: 0;
-  margin: 4px auto 0;
+  margin: 0 auto;
   opacity: 0;
+  pointer-events: none;
 }
 
-.folder-content:hover .folder-add-todo-btn-inline {
+.folder-add-todo-row:hover .folder-add-todo-btn-inline {
   opacity: 1;
 }
 

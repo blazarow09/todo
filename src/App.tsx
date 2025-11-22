@@ -53,6 +53,8 @@ export default function App() {
   const [showFolderPopup, setShowFolderPopup] = useState(false);
   const [showTodoModal, setShowTodoModal] = useState(false);
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
 
   const { addToHistory, undo, redo, canUndo, canRedo } = useUndoRedo(todos);
 
@@ -75,6 +77,7 @@ export default function App() {
         console.error('Failed to load todos:', e);
       }
     }
+    setIsLoaded(true);
 
     // Load folders
     const foldersRaw = localStorage.getItem(FOLDERS_KEY);
@@ -163,10 +166,9 @@ export default function App() {
 
   // Save todos to localStorage
   useEffect(() => {
-    if (todos.length > 0 || localStorage.getItem(STORAGE_KEY)) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-    }
-  }, [todos]);
+    if (!isLoaded) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  }, [todos, isLoaded]);
 
   // Save folders to localStorage (ensure Uncategorized always exists)
   useEffect(() => {
@@ -303,14 +305,26 @@ export default function App() {
     addToHistory(newTodos, 'toggle');
   }, [todos, addToHistory]);
 
-  const removeTodo = useCallback((id: number) => {
+  const archiveTodo = useCallback((id: number) => {
+    const newTodos = todos.map(t => t.id === id ? { ...t, isArchived: true } : t);
+    setTodos(newTodos);
+    addToHistory(newTodos, 'delete');
+  }, [todos, addToHistory]);
+
+  const deleteTodo = useCallback((id: number) => {
     const newTodos = todos.filter(t => t.id !== id);
     setTodos(newTodos);
     addToHistory(newTodos, 'delete');
   }, [todos, addToHistory]);
 
+  const restoreTodo = useCallback((id: number) => {
+    const newTodos = todos.map(t => t.id === id ? { ...t, isArchived: false } : t);
+    setTodos(newTodos);
+    addToHistory(newTodos, 'add');
+  }, [todos, addToHistory]);
+
   const clearCompleted = useCallback(() => {
-    const newTodos = todos.filter(t => !t.done);
+    const newTodos = todos.map(t => t.done ? { ...t, isArchived: true } : t);
     setTodos(newTodos);
     addToHistory(newTodos, 'delete');
   }, [todos, addToHistory]);
@@ -366,18 +380,27 @@ export default function App() {
 
   const handleExport = useCallback(async () => {
     const json = exportTodos(todos);
-    if ((window as any).electronAPI?.exportData) {
-      (window as any).electronAPI.exportData(json);
+    if ((window as any).electronAPI?.saveFile) {
+      // Use Electron's save dialog
+      (window as any).electronAPI.saveFile(json, 'todos.json');
     } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(json);
-      alert('Todo data copied to clipboard!');
+      // Fallback: download file in browser
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `todos-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
   }, [todos]);
 
   const handleImport = useCallback(async () => {
-    if ((window as any).electronAPI?.importData) {
-      (window as any).electronAPI.importData((data: string) => {
+    if ((window as any).electronAPI?.openFile) {
+      // Use Electron's open dialog
+      (window as any).electronAPI.openFile((data: string) => {
         const imported = importTodos(data);
         if (imported) {
           setTodos(imported);
@@ -385,17 +408,34 @@ export default function App() {
         }
       });
     } else {
-      // Fallback: prompt for JSON
-      const json = prompt('Paste JSON data:');
-      if (json) {
-        const imported = importTodos(json);
-        if (imported) {
-          setTodos(imported);
-          addToHistory(imported, 'add');
+      // Fallback: use file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const content = e.target?.result as string;
+            const imported = importTodos(content);
+            if (imported) {
+              setTodos(imported);
+              addToHistory(imported, 'add');
+            }
+          };
+          reader.readAsText(file);
         }
-      }
+      };
+      input.click();
     }
   }, [addToHistory]);
+
+  const clearArchived = useCallback(() => {
+    const newTodos = todos.filter(t => !t.isArchived);
+    setTodos(newTodos);
+    addToHistory(newTodos, 'delete');
+  }, [todos, addToHistory]);
 
   // Folder management
   const createFolder = useCallback(() => {
@@ -443,8 +483,31 @@ export default function App() {
   const deleteFolder = useCallback((folderId: string) => {
     // Prevent deletion of "Uncategorized" folder
     if (folderId === 'uncategorized') return;
-    setFolders(folders.filter(f => f.id !== folderId));
+    const folder = folders.find(f => f.id === folderId);
+    if (folder) {
+      setFolderToDelete({ id: folderId, name: folder.name });
+    }
   }, [folders]);
+
+  const confirmDeleteFolder = useCallback(() => {
+    if (!folderToDelete) return;
+    
+    // Move todos to Uncategorized
+    const newTodos = todos.map(t => 
+      t.folderId === folderToDelete.id ? { ...t, folderId: null } : t
+    );
+    
+    // Only update todos if there were changes
+    if (JSON.stringify(newTodos) !== JSON.stringify(todos)) {
+      setTodos(newTodos);
+      addToHistory(newTodos, 'update');
+    }
+    
+    // Delete folder
+    setFolders(prev => prev.filter(f => f.id !== folderToDelete.id));
+    
+    setFolderToDelete(null);
+  }, [folderToDelete, todos, addToHistory]);
 
   const moveTodoToFolder = useCallback((todoId: number, folderId: string | null) => {
     const newTodos = todos.map(t =>
@@ -513,6 +576,8 @@ export default function App() {
   // Filter todos
   const filterTodos = (todoList: Todo[]) => {
     return todoList.filter(todo => {
+      if (todo.isArchived) return false;
+
       // Filter by status
       if (filter === 'active' && todo.done) return false;
       if (filter === 'completed' && !todo.done) return false;
@@ -530,56 +595,16 @@ export default function App() {
   };
 
 
-  const activeTodos = todos.filter((t) => !t.done).length;
-  const completedCount = todos.filter((t) => t.done).length;
+  const activeTodos = todos.filter((t) => !t.done && !t.isArchived).length;
+  const completedCount = todos.filter((t) => t.done && !t.isArchived).length;
 
   return (
     <div className="app">
       <div className="titlebar">
-        <div className="macos-controls">
-          <button className="control-btn close" onClick={() => (window as any).electronAPI?.close()} title="Close">
-            <span className="control-dot"></span>
-          </button>
-          <button className="control-btn minimize" onClick={() => (window as any).electronAPI?.minimize()} title="Minimize">
-            <span className="control-dot"></span>
-          </button>
-        </div>
         <div className="titlebar-search">
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
         </div>
         <div className="titlebar-actions">
-          {completedCount > 0 && filter === 'completed' && (
-            <button
-              className="clear-completed-header-btn"
-              onClick={clearCompleted}
-              title="Clear completed tasks"
-            >
-              <Icon icon="mdi:delete-sweep" width="20" height="20" />
-            </button>
-          )}
-          <button
-            className="filter-toggle"
-            onClick={() => {
-              // Cycle through: active → completed → all → active
-              if (filter === 'active') {
-                setFilter('completed');
-              } else if (filter === 'completed') {
-                setFilter('all');
-              } else {
-                setFilter('active');
-              }
-            }}
-            title={`Filter: ${filter === 'all' ? 'All' : filter === 'active' ? 'Active' : 'Done'}`}
-          >
-            <Icon
-              icon={
-                filter === 'all' ? 'mdi:format-list-bulleted' :
-                  filter === 'active' ? 'mdi:checkbox-blank-circle-outline' :
-                    'mdi:check-circle'
-              }
-              width="20" height="20"
-            />
-          </button>
           <button
             className="settings-toggle"
             onClick={() => setShowSettings(true)}
@@ -587,12 +612,17 @@ export default function App() {
           >
             <Icon icon="mdi:cog" width="20" height="20" />
           </button>
-          <button
-            className="add-folder-header-btn"
-            onClick={() => setShowFolderPopup(true)}
-            title="Create folder"
-          >
-            <Icon icon="mdi:folder-plus" width="20" height="20" />
+        </div>
+        <div className="window-controls">
+          <button className="control-btn minimize" onClick={() => (window as any).electronAPI?.minimize()} title="Minimize">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 5H9" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button className="control-btn close" onClick={() => (window as any).electronAPI?.close()} title="Close">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 2L8 8M8 2L2 8" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
       </div>
@@ -634,16 +664,51 @@ export default function App() {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      {folderToDelete && (
+        <div className="folder-popup-overlay" onClick={() => setFolderToDelete(null)}>
+          <div className="folder-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="folder-popup-header">
+              <h3>Delete Folder</h3>
+              <button className="folder-popup-close" onClick={() => setFolderToDelete(null)}>×</button>
+            </div>
+            <div className="folder-popup-content">
+              <p style={{ margin: '0 0 20px', color: 'var(--text-primary)' }}>
+                Delete folder "<strong>{folderToDelete.name}</strong>"? Todos will be moved to Uncategorized.
+              </p>
+              <div className="folder-popup-actions">
+                <button className="folder-popup-cancel" onClick={() => setFolderToDelete(null)}>
+                  Cancel
+                </button>
+                <button 
+                  className="folder-popup-create" 
+                  onClick={confirmDeleteFolder}
+                  style={{ background: '#ef4444' }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <FilterBar
         filter={filter}
         labels={labels}
         selectedLabel={selectedLabel}
         onLabelChange={setSelectedLabel}
+        onFilterChange={setFilter}
+        onClearCompleted={clearCompleted}
+        hasCompleted={completedCount > 0}
       />
 
       {/* Settings Modal */}
       <Settings
         todos={todos}
+        onDelete={deleteTodo}
+        onRestore={restoreTodo}
+        onClearArchived={clearArchived}
         theme={theme}
         onThemeChange={(newTheme) => {
           // setTheme will trigger the useEffect to save, so we don't need to save here
@@ -659,6 +724,18 @@ export default function App() {
         }}
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
+        onExport={handleExport}
+        onImport={handleImport}
+        folders={folders}
+        onCreateFolder={(name) => {
+          const newFolder: Folder = {
+            id: `folder-${Date.now()}`,
+            name: name,
+            collapsed: false,
+            order: folders.length
+          };
+          setFolders([...folders, newFolder]);
+        }}
       />
 
       {/* Floating Action Button */}
@@ -670,7 +747,7 @@ export default function App() {
         }}
         title="Add new todo"
       >
-        <Icon icon="mdi:plus" width="24" height="24" />
+        <Icon icon="mdi:plus" width="18" height="18" />
       </button>
 
       {/* Todo Creation Modal */}
@@ -714,47 +791,59 @@ export default function App() {
                 />
               </div>
               <div className="input-options">
-                <CustomSelect
-                  value={priority}
-                  options={[
-                    { value: 'low', label: 'Low' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'high', label: 'High' }
-                  ]}
-                  onChange={(val) => setPriority(val as any)}
-                  placeholder="Priority"
-                  className="priority-select"
-                />
-                <LabelInput
-                  value={label}
-                  options={labels}
-                  onChange={setLabel}
-                  onAddNew={(newLabel) => {
-                    setLabel(newLabel);
-                  }}
-                  placeholder="Label"
-                  className="label-input"
-                />
-                <DatePicker
-                  value={dueDate}
-                  onChange={setDueDate}
-                  placeholder="Due date"
-                  className="date-input"
-                />
-                <CustomSelect
-                  value={targetFolderId || selectedFolderId || 'uncategorized'}
-                  options={foldersWithUncategorized.map(f => ({
-                    value: f.id,
-                    label: f.name
-                  }))}
-                  onChange={(val) => {
-                    const folderId = val === 'uncategorized' ? null : val;
-                    setTargetFolderId(folderId);
-                    setSelectedFolderId(folderId);
-                  }}
-                  placeholder="Folder"
-                  className="folder-select"
-                />
+                <div className="input-option-group priority-group">
+                  <label className="input-option-label">Priority</label>
+                  <CustomSelect
+                    value={priority}
+                    options={[
+                      { value: 'low', label: 'Low' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'high', label: 'High' }
+                    ]}
+                    onChange={(val) => setPriority(val as any)}
+                    placeholder="Priority"
+                    className="priority-select"
+                  />
+                </div>
+                <div className="input-option-group label-group">
+                  <label className="input-option-label">Label</label>
+                  <LabelInput
+                    value={label}
+                    options={labels}
+                    onChange={setLabel}
+                    onAddNew={(newLabel) => {
+                      setLabel(newLabel);
+                    }}
+                    placeholder="Label"
+                    className="label-input"
+                  />
+                </div>
+                <div className="input-option-group date-group">
+                  <label className="input-option-label">Due date</label>
+                  <DatePicker
+                    value={dueDate}
+                    onChange={setDueDate}
+                    placeholder="Due date"
+                    className="date-input"
+                  />
+                </div>
+                <div className="input-option-group folder-group">
+                  <label className="input-option-label">Folder</label>
+                  <CustomSelect
+                    value={targetFolderId || selectedFolderId || 'uncategorized'}
+                    options={foldersWithUncategorized.map(f => ({
+                      value: f.id,
+                      label: f.name
+                    }))}
+                    onChange={(val) => {
+                      const folderId = val === 'uncategorized' ? null : val;
+                      setTargetFolderId(folderId);
+                      setSelectedFolderId(folderId);
+                    }}
+                    placeholder="Folder"
+                    className="folder-select"
+                  />
+                </div>
               </div>
               <div className="todo-modal-actions">
                 <button className="todo-modal-cancel" onClick={() => setShowTodoModal(false)}>
@@ -788,55 +877,78 @@ export default function App() {
                 onRenameFolder={renameFolder}
                 onDeleteFolder={deleteFolder}
                 onMoveTodoToFolder={moveTodoToFolder}
-                onAddTodo={(folderId) => {
-                  setTargetFolderId(folderId);
-                  setShowTodoModal(true);
-                }}
                 renderTodos={(todos, folderId) => {
                   const filtered = filterTodos(todos);
                   return (
-                    <Droppable droppableId={`folder-${folderId}`}>
-                      {(provided) => (
-                        <ul className="todo-list" {...provided.droppableProps} ref={provided.innerRef}>
-                          {filtered.length === 0 ? (
-                            <div className="empty-state">
-                              <button
-                                className="empty-state-add-btn"
-                                onClick={() => {
-                                  setTargetFolderId(folderId === 'uncategorized' ? null : folderId);
-                                  setShowTodoModal(true);
-                                }}
-                                title="Add todo to this folder"
-                              >
-                                <Icon icon="mdi:plus" width="24" height="24" />
-                              </button>
-                            </div>
-                          ) : (
-                            filtered.map((todo, index) => (
-                              <Draggable key={todo.id} draggableId={String(todo.id)} index={index}>
-                                {(provided, snapshot) => (
-                                  <li
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    {...provided.dragHandleProps}
-                                    className={`todo-item-wrapper ${snapshot.isDragging ? 'dragging' : ''}`}
-                                  >
-                                    <TodoItem
-                                      todo={todo}
-                                      onToggle={toggleTodo}
-                                      onUpdate={updateTodo}
-                                      onDelete={removeTodo}
-                                      searchQuery={searchQuery}
-                                    />
-                                  </li>
-                                )}
-                              </Draggable>
-                            ))
-                          )}
-                          {provided.placeholder}
-                        </ul>
+                    <>
+                      <Droppable droppableId={`folder-${folderId}`}>
+                        {(provided) => (
+                          <ul className="todo-list" {...provided.droppableProps} ref={provided.innerRef}>
+                            {filtered.length === 0 ? (
+                              <div className="empty-state">
+                                <button
+                                  className="empty-state-add-btn"
+                                  onClick={() => {
+                                    setTargetFolderId(folderId === 'uncategorized' ? null : folderId);
+                                    setShowTodoModal(true);
+                                  }}
+                                  title="Add todo to this folder"
+                                >
+                                  <Icon icon="mdi:plus" width="24" height="24" />
+                                </button>
+                              </div>
+                            ) : (
+                              filtered.map((todo, index) => (
+                                <Draggable key={todo.id} draggableId={String(todo.id)} index={index}>
+                                  {(provided, snapshot) => (
+                                    <li
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      {...provided.dragHandleProps}
+                                      className={`todo-item-wrapper ${snapshot.isDragging ? 'dragging' : ''}`}
+                                    >
+                                      <TodoItem
+                                        todo={todo}
+                                        onToggle={toggleTodo}
+                                        onUpdate={updateTodo}
+                                        onDelete={archiveTodo}
+                                        searchQuery={searchQuery}
+                                      />
+                                    </li>
+                                  )}
+                                </Draggable>
+                              ))
+                            )}
+                            {provided.placeholder}
+                          </ul>
+                        )}
+                      </Droppable>
+                      {filtered.length > 0 && (
+                        <div
+                          className="folder-add-todo-row"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTargetFolderId(folderId);
+                            setShowTodoModal(true);
+                          }}
+                          title="Add todo to this folder"
+                        >
+                          <button
+                            className="folder-add-todo-btn-inline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTargetFolderId(folderId);
+                              setShowTodoModal(true);
+                            }}
+                            title="Add todo to this folder"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M7 2.5V11.5M2.5 7H11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                        </div>
                       )}
-                    </Droppable>
+                    </>
                   );
                 }}
               />

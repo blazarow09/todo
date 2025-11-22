@@ -5,7 +5,7 @@
 
 .select-button {
   width: 100%;
-  padding: 6px 12px;
+  padding: 5px 8px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--input-bg);
@@ -64,6 +64,7 @@
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -109,4 +110,3 @@
 .select-dropdown::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
 }
-

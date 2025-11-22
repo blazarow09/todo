@@ -2,7 +2,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0;
+  padding: 4px 10px;
   background: transparent;
   border: none;
 }
@@ -46,21 +46,31 @@
 }
 
 .clear-completed-btn {
-  padding: 4px 8px;
+  padding: 3px 12px;
   border: none;
   border-radius: 6px;
-  background: transparent;
+  background: var(--bg-secondary);
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  box-sizing: border-box;
 }
 
 .clear-completed-btn:hover {
   background: #fee2e2;
   color: #ef4444;
+}
+
+[data-theme="dark"] .clear-completed-btn:hover {
+  background: #3e1818;
+  color: #f87171;
 }
 
 .label-filter {
@@ -71,7 +81,7 @@
 .label-filter .select-button {
   border: none !important;
   background: transparent !important;
-  padding: 6px 12px;
+  padding: 5px 12px;
   color: var(--text-secondary);
   font-size: 13px;
 }
@@ -84,4 +94,3 @@
 .label-filter.open .select-button {
   background: var(--bg-tertiary) !important;
 }
-

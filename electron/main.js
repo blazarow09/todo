@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain, Tray, Menu, dialog } = require("electron");
+const { app, BrowserWindow, screen, ipcMain, Tray, Menu, dialog, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -151,7 +151,12 @@ const createWindow = () => {
     },
   });
 
-  // Load the app
+    // Force always on top level for Windows to ensure it stays on top
+    if (alwaysOnTop) {
+      mainWindow.setAlwaysOnTop(true, "screen-saver");
+    }
+
+    // Load the app
   const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
   
   // Show splash screen if it exists
@@ -224,6 +229,20 @@ const createWindow = () => {
 
   mainWindow.on("closed", () => {
     mainWindow = null;
+  });
+
+  // Re-apply always on top setting to ensure it stays on top
+  // especially after restoring from minimize or showing
+  mainWindow.on('show', () => {
+    if (mainWindow && mainWindow.isAlwaysOnTop()) {
+      mainWindow.setAlwaysOnTop(true, "screen-saver");
+    }
+  });
+
+  mainWindow.on('restore', () => {
+    if (mainWindow && mainWindow.isAlwaysOnTop()) {
+      mainWindow.setAlwaysOnTop(true, "screen-saver");
+    }
   });
 
   // Create system tray
@@ -371,10 +390,48 @@ ipcMain.handle("get-always-on-top", () => {
 
 ipcMain.handle("set-always-on-top", (event, value) => {
   if (mainWindow) {
-    mainWindow.setAlwaysOnTop(value);
+    if (value) {
+      mainWindow.setAlwaysOnTop(true, "screen-saver");
+    } else {
+      mainWindow.setAlwaysOnTop(false, "normal");
+    }
     return true;
   }
   return false;
+});
+
+// Open external links handler
+ipcMain.handle("open-external", async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to open external link:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("select-image", async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: "Select Image",
+    filters: [
+      { name: "Images", extensions: ["jpg", "jpeg", "png", "gif", "webp"] },
+    ],
+    properties: ["openFile"],
+  });
+
+  if (!canceled && filePaths.length > 0) {
+    try {
+      const filePath = filePaths[0];
+      const data = fs.readFileSync(filePath);
+      const ext = path.extname(filePath).slice(1);
+      const base64 = `data:image/${ext};base64,${data.toString("base64")}`;
+      return { success: true, url: base64, name: path.basename(filePath) };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+  return { success: false, canceled: true };
 });
 
 // Ensure only one instance of the app is running

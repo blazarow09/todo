@@ -15,5 +15,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   getAlwaysOnTop: () => ipcRenderer.invoke("get-always-on-top"),
   setAlwaysOnTop: (value) => ipcRenderer.invoke("set-always-on-top", value),
+  openExternal: (url) => ipcRenderer.invoke("open-external", url),
+  selectImage: () => ipcRenderer.invoke("select-image"),
 });
 

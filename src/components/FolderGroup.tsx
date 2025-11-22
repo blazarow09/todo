@@ -10,7 +10,6 @@ type FolderGroupProps = {
   onRenameFolder: (folderId: string, newName: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onMoveTodoToFolder: (todoId: number, folderId: string | null) => void;
-  onAddTodo: (folderId: string) => void;
   renderTodos: (todos: Todo[], folderId: string) => JSX.Element;
 };
 
@@ -21,7 +20,6 @@ export default function FolderGroup({
   onRenameFolder,
   onDeleteFolder,
   onMoveTodoToFolder,
-  onAddTodo,
   renderTodos
 }: FolderGroupProps) {
   const [isRenaming, setIsRenaming] = useState(false);
@@ -61,7 +59,7 @@ export default function FolderGroup({
   };
 
   // todos prop is already filtered to this folder, so use it directly
-  const activeCount = todos.filter(t => !t.done).length;
+  const completedCount = todos.filter(t => t.done).length;
   const totalCount = todos.length;
 
   return (
@@ -127,19 +125,14 @@ export default function FolderGroup({
               </button>
               <button
                 className="folder-action-btn delete"
-                onClick={() => {
-                  if (confirm(`Delete folder "${folder.name}"? Todos will be moved to Uncategorized.`)) {
-                    todos.forEach(todo => onMoveTodoToFolder(todo.id, null));
-                    onDeleteFolder(folder.id);
-                  }
-                }}
+                onClick={() => onDeleteFolder(folder.id)}
                 title="Delete folder"
               >
                 <Icon icon="mdi:delete" width="16" height="16" />
               </button>
             </div>
             <span className="folder-count">
-              {activeCount}/{totalCount}
+              {completedCount}/{totalCount}
             </span>
           </>
         )}
@@ -147,20 +140,6 @@ export default function FolderGroup({
       {!folder.collapsed && (
         <div className="folder-content">
           {renderTodos(todos, folder.id)}
-          {todos.length > 0 && (
-            <button 
-              className="folder-add-todo-btn-inline"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddTodo(folder.id);
-              }}
-              title="Add todo to this folder"
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M7 2.5V11.5M2.5 7H11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
-          )}
         </div>
       )}
     </div>

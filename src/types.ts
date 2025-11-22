@@ -7,7 +7,16 @@ export type Todo = {
   folderId?: string | null;
   dueDate?: string;
   notes?: string;
+  attachments?: Attachment[];
+  isArchived?: boolean;
   createdAt: number;
+};
+
+export type Attachment = {
+  id: string;
+  type: 'image';
+  url: string;
+  name?: string;
 };
 
 export type Folder = {
