@@ -35,6 +35,9 @@ jobs:
           path: |
             **/electron-builder/Cache
             **/.cache/electron-builder
+            ${{ env.HOME }}/.cache/electron-builder
+            ${{ env.APPDATA }}/electron-builder/Cache
+            ${{ env.APPDATA }}\electron-builder\Cache
           key: electron-builder-${{ runner.os }}-${{ hashFiles('package.json', 'pnpm-lock.yaml') }}
           restore-keys: |
             electron-builder-${{ runner.os }}-
@@ -45,9 +48,44 @@ jobs:
       - name: Build application
         run: pnpm run build
 
+      - name: Pre-download electron-builder binaries
+        run: |
+          # Pre-download NSIS resources to avoid timeout during build
+          $nsisUrl = "https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z"
+          $cacheDir = "$env:APPDATA\electron-builder\Cache\nsis"
+          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+          $outputFile = "$cacheDir\nsis-resources-3.4.1.7z"
+          
+          if (-not (Test-Path $outputFile)) {
+            Write-Host "Downloading NSIS resources..."
+            $maxRetries = 5
+            $retryCount = 0
+            $success = $false
+            
+            while ($retryCount -lt $maxRetries -and -not $success) {
+              try {
+                Invoke-WebRequest -Uri $nsisUrl -OutFile $outputFile -TimeoutSec 60
+                $success = $true
+                Write-Host "NSIS resources downloaded successfully"
+              } catch {
+                $retryCount++
+                if ($retryCount -lt $maxRetries) {
+                  Write-Host "Download failed, retrying... ($retryCount/$maxRetries)"
+                  Start-Sleep -Seconds 5
+                } else {
+                  Write-Host "Warning: Failed to pre-download NSIS resources, build will try to download it"
+                }
+              }
+            }
+          } else {
+            Write-Host "NSIS resources already cached"
+          }
+
       - name: Build and Publish to GitHub Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder-cache
+        timeout-minutes: 30
         run: pnpm run electron:publish
         continue-on-error: false
 

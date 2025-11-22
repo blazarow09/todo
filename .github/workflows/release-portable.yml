@@ -1,0 +1,51 @@
+name: Build and Release (Portable)
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:  # Manual trigger only - use this if NSIS build fails
+
+jobs:
+  build-and-release-portable:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Cache electron-builder
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/electron-builder/Cache
+            **/.cache/electron-builder
+            ${{ env.APPDATA }}\electron-builder\Cache
+          key: electron-builder-portable-${{ runner.os }}-${{ hashFiles('package.json', 'pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-builder-portable-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build application
+        run: pnpm run build
+
+      - name: Build and Publish Portable to GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        timeout-minutes: 20
+        run: pnpm run electron:publish:portable
+        continue-on-error: false
+
