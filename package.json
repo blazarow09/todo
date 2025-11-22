@@ -1,7 +1,7 @@
 {
   "name": "my-tasks",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A modern desktop todo application with folder organization, labels, priorities, and more",
   "author": "blazarow",
   "main": "electron/main.js",
@@ -88,7 +88,8 @@
     "publish": {
       "provider": "github",
       "owner": "blazarow09",
-      "repo": "todo"
+      "repo": "todo",
+      "releaseType": "release"
     }
   }
 }
