@@ -253,9 +253,9 @@ export default function Settings({
                     <span>Create</span>
                   </button>
                 </div>
-                {folders.filter(f => f.id !== 'uncategorized').length > 0 && (
+                {folders.length > 0 && (
                   <div className="folders-list">
-                    {folders.filter(f => f.id !== 'uncategorized').map(folder => (
+                    {folders.map(folder => (
                       <div key={folder.id} className="folder-item">
                         <Icon icon="mdi:folder" width="16" height="16" />
                         <span>{folder.name}</span>

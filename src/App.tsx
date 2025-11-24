@@ -23,6 +23,7 @@ const THEME_KEY = "todo_theme";
 const FOLDERS_KEY = "todo_folders";
 const SELECTED_FOLDER_KEY = "todo_selected_folder";
 const ALWAYS_ON_TOP_KEY = "todo_always_on_top";
+const UNCategorized_MIGRATION_KEY = "uncategorized_migrated";
 
 export default function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -80,7 +81,7 @@ export default function App() {
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() => {
     const saved = localStorage.getItem(SELECTED_FOLDER_KEY);
-    return saved === 'uncategorized' ? null : saved;
+    return saved || null;
   });
 
   const [showFolderPopup, setShowFolderPopup] = useState(false);
@@ -110,6 +111,113 @@ export default function App() {
     }
   }, []);
 
+  // Migration function to convert uncategorized folder to normal folder
+  const migrateUncategorizedFolder = useCallback((loadedTodos: Todo[], loadedFolders: Folder[]) => {
+    // Check if migration has already been done
+    const migrationDone = localStorage.getItem(UNCategorized_MIGRATION_KEY) === 'true';
+    
+    // Check if there are any folders with the old 'uncategorized' ID
+    const hasOldUncategorized = loadedFolders.some(f => f.id === 'uncategorized');
+    
+    // Check if there are already migrated uncategorized folders (to avoid duplicates)
+    const hasMigratedUncategorized = loadedFolders.some(f => f.id.startsWith('folder-uncategorized-'));
+    
+    // Check if there are todos with null folderId that need a folder
+    const todosWithoutFolder = loadedTodos.filter(t => !t.folderId);
+    
+    // If migration already done and no old uncategorized folder exists, no migration needed
+    if (migrationDone && !hasOldUncategorized) {
+      // If there are todos without folder but migration is done, they should already be in a folder
+      // But if they're not, we might need to assign them to an existing migrated folder
+      if (todosWithoutFolder.length > 0 && hasMigratedUncategorized) {
+        // Find the first migrated uncategorized folder
+        const migratedFolder = loadedFolders.find(f => f.id.startsWith('folder-uncategorized-'));
+        if (migratedFolder) {
+          // Assign todos without folder to the existing migrated folder
+          const migratedTodos = loadedTodos.map(todo => 
+            !todo.folderId ? { ...todo, folderId: migratedFolder.id } : todo
+          );
+          return { todos: migratedTodos, folders: loadedFolders, migratedFolderId: null };
+        }
+      }
+      return { todos: loadedTodos, folders: loadedFolders, migratedFolderId: null };
+    }
+    
+    const uncategorizedIndex = loadedFolders.findIndex(f => f.id === 'uncategorized');
+    
+    if (uncategorizedIndex === -1) {
+      // No uncategorized folder, check if we need to create one for todos with null folderId
+      // Only create if migration hasn't been done and there are no existing migrated folders
+      if (todosWithoutFolder.length > 0 && !migrationDone && !hasMigratedUncategorized) {
+        // Create a new folder for uncategorized todos
+        const newFolderId = `folder-uncategorized-${Date.now()}`;
+        const newFolder: Folder = {
+          id: newFolderId,
+          name: 'Uncategorized',
+          collapsed: false,
+          order: loadedFolders.length > 0 ? Math.max(...loadedFolders.map(f => f.order)) + 1 : 0
+        };
+        
+        // Migrate todos
+        const migratedTodos = loadedTodos.map(todo => 
+          !todo.folderId ? { ...todo, folderId: newFolderId } : todo
+        );
+        
+        // Mark migration as done
+        localStorage.setItem(UNCategorized_MIGRATION_KEY, 'true');
+        
+        return {
+          todos: migratedTodos,
+          folders: [...loadedFolders, newFolder],
+          migratedFolderId: newFolderId
+        };
+      }
+      // If there are already migrated folders but todos without folderId, assign them
+      if (todosWithoutFolder.length > 0 && hasMigratedUncategorized) {
+        const migratedFolder = loadedFolders.find(f => f.id.startsWith('folder-uncategorized-'));
+        if (migratedFolder) {
+          const migratedTodos = loadedTodos.map(todo => 
+            !todo.folderId ? { ...todo, folderId: migratedFolder.id } : todo
+          );
+          return { todos: migratedTodos, folders: loadedFolders, migratedFolderId: null };
+        }
+      }
+      return { todos: loadedTodos, folders: loadedFolders, migratedFolderId: null };
+    }
+    
+    // Uncategorized folder exists, convert it to normal folder
+    const uncategorizedFolder = loadedFolders[uncategorizedIndex];
+    const newFolderId = `folder-uncategorized-${Date.now()}`;
+    const migratedFolder: Folder = {
+      ...uncategorizedFolder,
+      id: newFolderId
+    };
+    
+    // Migrate todos with null folderId or 'uncategorized' to new folder ID
+    const migratedTodos = loadedTodos.map(todo => {
+      if (!todo.folderId || todo.folderId === 'uncategorized') {
+        return { ...todo, folderId: newFolderId };
+      }
+      return todo;
+    });
+    
+    // Replace uncategorized folder with migrated folder
+    const migratedFolders = [
+      ...loadedFolders.slice(0, uncategorizedIndex),
+      migratedFolder,
+      ...loadedFolders.slice(uncategorizedIndex + 1)
+    ];
+    
+    // Mark migration as done
+    localStorage.setItem(UNCategorized_MIGRATION_KEY, 'true');
+    
+    return {
+      todos: migratedTodos,
+      folders: migratedFolders,
+      migratedFolderId: newFolderId
+    };
+  }, []);
+
   // Load data from files on mount and handle migration
   useEffect(() => {
     const loadData = async () => {
@@ -118,41 +226,46 @@ export default function App() {
         if (!electronAPI) {
           // Not in Electron, use localStorage as fallback
           const raw = localStorage.getItem(STORAGE_KEY);
+          let loadedTodos: Todo[] = [];
           if (raw) {
             try {
               const loaded = JSON.parse(raw);
-              const result: Todo[] = [];
-              for (let i = 0; i < loaded.length; i++) {
-                const todo = loaded[i];
-                result.push({
-                  ...todo,
-                  priority: todo.priority || 'medium',
-                  label: todo.label || todo.category || '',
-                  folderId: todo.folderId || null,
-                  createdAt: todo.createdAt || todo.id,
-                });
-              }
-              setTodos(result);
+              loadedTodos = loaded.map((todo: any) => ({
+                ...todo,
+                priority: todo.priority || 'medium',
+                label: todo.label || todo.category || '',
+                folderId: todo.folderId || null,
+                createdAt: todo.createdAt || todo.id,
+              }));
             } catch (e) {
               console.error('Failed to load todos:', e);
             }
           }
 
           const foldersRaw = localStorage.getItem(FOLDERS_KEY);
+          let loadedFolders: Folder[] = [];
           if (foldersRaw) {
             try {
-              const loadedFolders = JSON.parse(foldersRaw);
-              const hasUncategorized = loadedFolders.some((f: Folder) => f.id === 'uncategorized');
-              setFolders(hasUncategorized ? loadedFolders : [{
-                id: 'uncategorized',
-                name: 'Uncategorized',
-                collapsed: false,
-                order: 0
-              }, ...loadedFolders]);
+              loadedFolders = JSON.parse(foldersRaw);
             } catch (e) {
               console.error('Failed to load folders:', e);
             }
           }
+          
+          // Migrate uncategorized folder
+          const migration = migrateUncategorizedFolder(loadedTodos, loadedFolders);
+          setTodos(migration.todos);
+          setFolders(migration.folders);
+          
+          // Update selected folder if it was uncategorized
+          if (migration.migratedFolderId) {
+            const savedSelectedFolder = localStorage.getItem(SELECTED_FOLDER_KEY);
+            if (!savedSelectedFolder || savedSelectedFolder === 'uncategorized') {
+              setSelectedFolderId(migration.migratedFolderId);
+              localStorage.setItem(SELECTED_FOLDER_KEY, migration.migratedFolderId);
+            }
+          }
+          
           setIsDataLoaded(true);
           return;
         }
@@ -223,28 +336,34 @@ export default function App() {
             electronAPI.loadFolders()
           ]);
 
-          if (migratedTodos) {
-            setTodos(migratedTodos);
-          } else if (todosToMigrate.length > 0) {
-            setTodos(todosToMigrate);
-          }
-
-          if (migratedFolders) {
-            const hasUncategorized = migratedFolders.some((f: Folder) => f.id === 'uncategorized');
-            setFolders(hasUncategorized ? migratedFolders : [{
-              id: 'uncategorized',
-              name: 'Uncategorized',
-              collapsed: false,
-              order: 0
-            }, ...migratedFolders]);
-          } else if (foldersToMigrate.length > 0) {
-            const hasUncategorized = foldersToMigrate.some((f: Folder) => f.id === 'uncategorized');
-            setFolders(hasUncategorized ? foldersToMigrate : [{
-              id: 'uncategorized',
-              name: 'Uncategorized',
-              collapsed: false,
-              order: 0
-            }, ...foldersToMigrate]);
+          let finalTodos = migratedTodos || todosToMigrate;
+          let finalFolders = migratedFolders || foldersToMigrate;
+          
+          // Migrate uncategorized folder
+          const migration = migrateUncategorizedFolder(finalTodos, finalFolders);
+          finalTodos = migration.todos;
+          finalFolders = migration.folders;
+          
+          setTodos(finalTodos);
+          setFolders(finalFolders);
+          
+          // Update selected folder if it was uncategorized
+          if (migration.migratedFolderId) {
+            if (selectedFolderToMigrate === 'uncategorized' || !selectedFolderToMigrate) {
+              setSelectedFolderId(migration.migratedFolderId);
+            }
+            
+            // Save migrated data back to files
+            if (electronAPI?.saveTodos) {
+              electronAPI.saveTodos(finalTodos).catch((err: any) => {
+                console.error('Failed to save migrated todos:', err);
+              });
+            }
+            if (electronAPI?.saveFolders) {
+              electronAPI.saveFolders(finalFolders).catch((err: any) => {
+                console.error('Failed to save migrated folders:', err);
+              });
+            }
           }
 
           // Update other settings from migration
@@ -254,9 +373,7 @@ export default function App() {
           if (alwaysOnTopToMigrate !== null) {
             setAlwaysOnTop(alwaysOnTopToMigrate === 'true');
           }
-          if (selectedFolderToMigrate) {
-            setSelectedFolderId(selectedFolderToMigrate === 'uncategorized' ? null : selectedFolderToMigrate);
-          }
+          // Selected folder is handled in migration above
           if (backgroundImageToMigrate) {
             setBackgroundImage(backgroundImageToMigrate);
           }
@@ -271,26 +388,36 @@ export default function App() {
           }
         } else {
           // Load from files (normal case)
-          if (loadedTodos) {
-            setTodos(loadedTodos);
-          }
-
-          if (loadedFolders) {
-            const hasUncategorized = loadedFolders.some((f: Folder) => f.id === 'uncategorized');
-            setFolders(hasUncategorized ? loadedFolders : [{
-              id: 'uncategorized',
-              name: 'Uncategorized',
-              collapsed: false,
-              order: 0
-            }, ...loadedFolders]);
-          } else {
-            // Ensure Uncategorized folder exists
-            setFolders([{
-              id: 'uncategorized',
-              name: 'Uncategorized',
-              collapsed: false,
-              order: 0
-            }]);
+          let todosToSet = loadedTodos || [];
+          let foldersToSet = loadedFolders || [];
+          
+          // Migrate uncategorized folder if it exists
+          const migration = migrateUncategorizedFolder(todosToSet, foldersToSet);
+          todosToSet = migration.todos;
+          foldersToSet = migration.folders;
+          
+          setTodos(todosToSet);
+          setFolders(foldersToSet);
+          
+          // Update selected folder if it was uncategorized
+          if (migration.migratedFolderId) {
+            const savedSelectedFolder = localStorage.getItem(SELECTED_FOLDER_KEY);
+            if (!savedSelectedFolder || savedSelectedFolder === 'uncategorized') {
+              setSelectedFolderId(migration.migratedFolderId);
+              localStorage.setItem(SELECTED_FOLDER_KEY, migration.migratedFolderId);
+            }
+            
+            // Save migrated data back to files
+            if (electronAPI?.saveTodos) {
+              electronAPI.saveTodos(todosToSet).catch((err: any) => {
+                console.error('Failed to save migrated todos:', err);
+              });
+            }
+            if (electronAPI?.saveFolders) {
+              electronAPI.saveFolders(foldersToSet).catch((err: any) => {
+                console.error('Failed to save migrated folders:', err);
+              });
+            }
           }
         }
 
@@ -319,39 +446,19 @@ export default function App() {
     }
   }, [todos, isDataLoaded]);
 
-  // Save folders to files (ensure Uncategorized always exists)
+  // Save folders to files
   useEffect(() => {
     if (!isDataLoaded) return; // Don't save during initial load
 
     const electronAPI = (window as any).electronAPI;
     if (electronAPI?.saveFolders) {
-      const hasUncategorized = folders.some(f => f.id === 'uncategorized');
-      const foldersToSave = hasUncategorized ? folders : [
-        {
-          id: 'uncategorized',
-          name: 'Uncategorized',
-          collapsed: false,
-          order: 0
-        },
-        ...folders
-      ];
-      electronAPI.saveFolders(foldersToSave).catch((err: any) => {
+      electronAPI.saveFolders(folders).catch((err: any) => {
         console.error('Failed to save folders:', err);
       });
     } else {
       // Fallback to localStorage if not in Electron
       if (folders.length > 0) {
-        const hasUncategorized = folders.some(f => f.id === 'uncategorized');
-        const foldersToSave = hasUncategorized ? folders : [
-          {
-            id: 'uncategorized',
-            name: 'Uncategorized',
-            collapsed: false,
-            order: 0
-          },
-          ...folders
-        ];
-        localStorage.setItem(FOLDERS_KEY, JSON.stringify(foldersToSave));
+        localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
       }
     }
   }, [folders, isDataLoaded]);
@@ -388,8 +495,11 @@ export default function App() {
 
   // Save selected folder to localStorage
   useEffect(() => {
-    const folderIdToSave = selectedFolderId || 'uncategorized';
-    localStorage.setItem(SELECTED_FOLDER_KEY, folderIdToSave);
+    if (selectedFolderId) {
+      localStorage.setItem(SELECTED_FOLDER_KEY, selectedFolderId);
+    } else {
+      localStorage.removeItem(SELECTED_FOLDER_KEY);
+    }
   }, [selectedFolderId]);
 
   // Schedule notifications for todos with notification settings
@@ -408,31 +518,17 @@ export default function App() {
     const query = searchQuery.toLowerCase();
     const foldersToExpand: string[] = [];
 
-    // Group todos by folder
+    // Group todos by folder (only include todos with folderId)
     const todosByFolderMap = todos.reduce((acc, todo) => {
-      const folderId = todo.folderId || 'uncategorized';
-      if (!acc[folderId]) acc[folderId] = [];
-      acc[folderId].push(todo);
+      if (todo.folderId) {
+        if (!acc[todo.folderId]) acc[todo.folderId] = [];
+        acc[todo.folderId].push(todo);
+      }
       return acc;
     }, {} as Record<string, Todo[]>);
 
-    // Ensure "Uncategorized" folder exists
-    const foldersWithUncategorized = (() => {
-      const hasUncategorized = folders.some(f => f.id === 'uncategorized');
-      if (!hasUncategorized) {
-        const defaultFolder: Folder = {
-          id: 'uncategorized',
-          name: 'Uncategorized',
-          collapsed: false,
-          order: 0
-        };
-        return [defaultFolder, ...folders];
-      }
-      return folders;
-    })();
-
     // Check each folder for matching todos
-    foldersWithUncategorized.forEach(folder => {
+    folders.forEach(folder => {
       const folderTodos = todosByFolderMap[folder.id] || [];
       const hasMatch = folderTodos.some(todo => {
         // Check if todo matches search query
@@ -467,7 +563,7 @@ export default function App() {
   }, [searchQuery, todos, filter, selectedLabel]);
 
   const addTodo = useCallback((folderIdOverride?: string | null) => {
-    const folderToUse = folderIdOverride !== undefined ? folderIdOverride : (selectedFolderId || 'uncategorized');
+    const folderToUse = folderIdOverride !== undefined ? folderIdOverride : selectedFolderId;
     if (!input.trim()) return;
 
     if (editingTodo) {
@@ -561,19 +657,88 @@ export default function App() {
   }, [todos, addToHistory]);
 
   const handleDragEnd = useCallback((result: DropResult) => {
-    if (!result.destination) return;
+    console.log('=== DRAG END ===');
+    console.log('Full result:', result);
+    console.log('Source:', result.source);
+    console.log('Destination:', result.destination);
+    
+    if (!result.destination) {
+      console.log('No destination - drag cancelled');
+      return;
+    }
+
+    // Handle folder reordering (only if type is FOLDER)
+    if (result.type === 'FOLDER' && result.source.droppableId === 'folders-list' && result.destination.droppableId === 'folders-list') {
+      console.log('Folder reordering detected');
+      const sourceIndex = result.source.index;
+      const destIndex = result.destination.index;
+      
+      // Prevent reordering if source equals destination
+      if (sourceIndex === destIndex) return;
+      
+      // Sort folders by order
+      const sorted = [...folders].sort((a, b) => a.order - b.order);
+      
+      console.log('Current sorted folders:', sorted.map(f => ({ id: f.id, order: f.order })));
+      console.log('Source index:', sourceIndex, 'Dest index:', destIndex);
+      
+      const sourceFolder = sorted[sourceIndex];
+      console.log('Source folder:', sourceFolder.id);
+      
+      // Reorder folders
+      const reorderedFolders = Array.from(sorted);
+      const [reorderedFolder] = reorderedFolders.splice(sourceIndex, 1);
+      reorderedFolders.splice(destIndex, 0, reorderedFolder);
+      
+      console.log('After reorder:', reorderedFolders.map(f => ({ id: f.id })));
+      
+      // Update order property for all folders based on their new positions
+      // Preserve all other properties including collapsed state
+      const updatedFolders = reorderedFolders.map((folder, index) => ({
+        ...folder,
+        order: index,
+        // Explicitly preserve collapsed state
+        collapsed: folder.collapsed !== undefined ? folder.collapsed : false
+      }));
+      
+      console.log('Updated folders with order:', updatedFolders.map(f => ({ id: f.id, order: f.order, collapsed: f.collapsed })));
+      
+      setFolders(updatedFolders);
+      return;
+    }
+
+    // Only handle TODO type drags here (folders are handled above)
+    if (result.type !== 'TODO') {
+      console.log('Ignoring non-TODO drag:', result.type);
+      return;
+    }
 
     const sourceDroppableId = result.source.droppableId;
     const destDroppableId = result.destination.droppableId;
     const todoId = parseInt(result.draggableId);
 
+    console.log('Todo drag detected');
+    console.log('Todo ID:', todoId);
+    console.log('Source droppable:', sourceDroppableId);
+    console.log('Dest droppable:', destDroppableId);
+    console.log('Source index:', result.source.index);
+    console.log('Dest index:', result.destination.index);
+
     // Check if moving between folders
     if (sourceDroppableId !== destDroppableId) {
+      console.log('Moving between folders');
+      // Ignore drops on folders-list (that's for folder reordering, not todos)
+      if (destDroppableId === 'folders-list') {
+        console.log('Ignoring drop on folders-list - todos cannot be dropped on folder headers');
+        return;
+      }
       if (destDroppableId.startsWith('folder-')) {
         const folderId = destDroppableId.replace('folder-', '');
+        console.log('Moving to folder:', folderId);
         const newTodos = todos.map(t =>
-          t.id === todoId ? { ...t, folderId: folderId === 'uncategorized' ? null : folderId } : t
+          t.id === todoId ? { ...t, folderId } : t
         );
+        console.log('Updated todos:', newTodos);
         setTodos(newTodos);
         addToHistory(newTodos, 'update');
       }
@@ -581,23 +746,100 @@ export default function App() {
     }
 
     // Reordering within same folder
+    console.log('Reordering within same folder');
     const folderId = sourceDroppableId.replace('folder-', '');
-    const folderTodos = todos.filter(t => {
-      const tFolderId = t.folderId || 'uncategorized';
-      return tFolderId === folderId;
-    });
-    const otherTodos = todos.filter(t => {
-      const tFolderId = t.folderId || 'uncategorized';
-      return tFolderId !== folderId;
-    });
+    console.log('Folder ID:', folderId);
+    
+    const folderTodos = todos.filter(t => t.folderId === folderId);
+    const otherTodos = todos.filter(t => t.folderId !== folderId);
 
+    console.log('Folder todos (full):', folderTodos.map(t => ({ id: t.id, text: t.text.substring(0, 20) })));
+    console.log('Total folder todos:', folderTodos.length);
+
+    // Get filtered todos to map drag indices to actual todos
+    const filteredFolderTodos = filterTodos(folderTodos);
+    console.log('Filtered folder todos:', filteredFolderTodos.map(t => ({ id: t.id, text: t.text.substring(0, 20) })));
+    console.log('Total filtered todos:', filteredFolderTodos.length);
+    console.log('Source index in filtered:', result.source.index);
+    console.log('Dest index in filtered:', result.destination.index);
+    
+    // Get the actual todo being moved
+    const sourceTodo = filteredFolderTodos[result.source.index];
+    console.log('Source todo:', sourceTodo ? { id: sourceTodo.id, text: sourceTodo.text.substring(0, 20) } : 'NOT FOUND');
+    if (!sourceTodo) {
+      console.error('Source todo not found at index', result.source.index);
+      return; // Safety check
+    }
+    
+    // Find source todo's position in full array
+    const sourceIndexInFull = folderTodos.findIndex(t => t.id === sourceTodo.id);
+    console.log('Source index in full array:', sourceIndexInFull);
+    if (sourceIndexInFull === -1) {
+      console.error('Source todo not found in full array');
+      return;
+    }
+    
+    // Determine destination position
+    // Get the todo at destination index in filtered list
+    const destTodo = filteredFolderTodos[result.destination.index];
+    console.log('Dest todo:', destTodo ? { id: destTodo.id, text: destTodo.text.substring(0, 20) } : 'NOT FOUND (end of list)');
+    
+    let destIndexInFull: number;
+    if (destTodo) {
+      // Find destination todo's position in full array
+      const destIndexInFullTemp = folderTodos.findIndex(t => t.id === destTodo.id);
+      console.log('Dest todo index in full array (temp):', destIndexInFullTemp);
+      if (destIndexInFullTemp === -1) {
+        console.error('Dest todo not found in full array');
+        return;
+      }
+      
+      // If moving down, adjust index (since we'll remove from before)
+      if (sourceIndexInFull < destIndexInFullTemp) {
+        destIndexInFull = destIndexInFullTemp;
+        console.log('Moving down - dest index:', destIndexInFull);
+      } else {
+        destIndexInFull = destIndexInFullTemp;
+        console.log('Moving up - dest index:', destIndexInFull);
+      }
+    } else {
+      // Dropped at end of filtered list - find last visible todo's position
+      console.log('Dropped at end of filtered list');
+      if (filteredFolderTodos.length > 0) {
+        const lastVisibleTodo = filteredFolderTodos[filteredFolderTodos.length - 1];
+        const lastVisibleIndex = folderTodos.findIndex(t => t.id === lastVisibleTodo.id);
+        console.log('Last visible todo index:', lastVisibleIndex);
+        destIndexInFull = lastVisibleIndex + 1;
+        // Adjust if source is before destination
+        if (sourceIndexInFull < destIndexInFull) {
+          destIndexInFull -= 1;
+          console.log('Adjusted dest index (moving down):', destIndexInFull);
+        }
+      } else {
+        destIndexInFull = folderTodos.length;
+        console.log('No filtered todos - dest index:', destIndexInFull);
+      }
+    }
+    
+    // Ensure valid range
+    destIndexInFull = Math.max(0, Math.min(destIndexInFull, folderTodos.length));
+    console.log('Final dest index:', destIndexInFull);
+    
+    // Reorder the full folderTodos array
     const items = Array.from(folderTodos);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
+    console.log('Before reorder:', items.map(t => ({ id: t.id, text: t.text.substring(0, 20) })));
+    const [reorderedItem] = items.splice(sourceIndexInFull, 1);
+    console.log('Reordered item:', { id: reorderedItem.id, text: reorderedItem.text.substring(0, 20) });
+    items.splice(destIndexInFull, 0, reorderedItem);
+    console.log('After reorder:', items.map(t => ({ id: t.id, text: t.text.substring(0, 20) })));
 
-    setTodos([...otherTodos, ...items]);
-    addToHistory([...otherTodos, ...items], 'reorder');
-  }, [todos, addToHistory]);
+    const finalTodos = [...otherTodos, ...items];
+    console.log('Final todos array length:', finalTodos.length);
+    console.log('=== END DRAG END ===');
+    
+    setTodos(finalTodos);
+    addToHistory(finalTodos, 'reorder');
+  }, [todos, addToHistory, folders]);
 
   const handleUndo = useCallback(() => {
     const restored = undo();
@@ -691,39 +933,23 @@ export default function App() {
   const renameFolder = useCallback((folderId: string, newName: string) => {
     if (!newName || !newName.trim()) return;
 
-    setFolders(prevFolders => {
-      // If renaming "Uncategorized", ensure it still exists in the array
-      const hasUncategorized = prevFolders.some(f => f.id === 'uncategorized');
-      let updated = prevFolders.map(f =>
+    setFolders(prevFolders => 
+      prevFolders.map(f =>
         f.id === folderId ? { ...f, name: newName.trim() } : f
-      );
-
-      // If "Uncategorized" was renamed and doesn't exist anymore, add it back
-      if (folderId === 'uncategorized' && !updated.some(f => f.id === 'uncategorized')) {
-        updated = [
-          { id: 'uncategorized', name: newName.trim(), collapsed: false, order: 0 },
-          ...updated.filter(f => f.id !== 'uncategorized')
-        ];
-      }
-
-      // Force update by creating new array reference
-      return [...updated];
-    });
+      )
+    );
   }, []);
 
   const deleteFolder = useCallback((folderId: string, folderName: string) => {
-    // Prevent deletion of "Uncategorized" folder
-    if (folderId === 'uncategorized') return;
     setFolderToDelete({ id: folderId, name: folderName });
   }, []);
 
   const confirmDeleteFolder = useCallback(() => {
     if (!folderToDelete) return;
 
-    // Move todos to Uncategorized
-    const newTodos = todos.map(t =>
-      t.folderId === folderToDelete.id ? { ...t, folderId: null } : t
-    );
+    // Delete todos in the folder (or move to first available folder if you prefer)
+    // For now, we'll delete todos when folder is deleted
+    const newTodos = todos.filter(t => t.folderId !== folderToDelete.id);
 
     // Only update todos if there were changes
     if (JSON.stringify(newTodos) !== JSON.stringify(todos)) {
@@ -771,35 +997,17 @@ export default function App() {
   // Filter and search logic
   const labels = Array.from(new Set(todos.map(t => t.label).filter(Boolean)));
 
-  // Ensure "Uncategorized" folder exists in folders array
-  const foldersWithUncategorized = (() => {
-    const hasUncategorized = folders.some(f => f.id === 'uncategorized');
-    if (!hasUncategorized) {
-      const defaultFolder: Folder = {
-        id: 'uncategorized',
-        name: 'Uncategorized',
-        collapsed: false,
-        order: 0
-      };
-      return [defaultFolder, ...folders];
-    }
-    return folders;
-  })();
-
-  // Group todos by folder
+  // Group todos by folder (only include todos that have a folderId)
   const todosByFolder = todos.reduce((acc, todo) => {
-    const folderId = todo.folderId || 'uncategorized';
-    if (!acc[folderId]) acc[folderId] = [];
-    acc[folderId].push(todo);
+    if (todo.folderId) {
+      if (!acc[todo.folderId]) acc[todo.folderId] = [];
+      acc[todo.folderId].push(todo);
+    }
     return acc;
   }, {} as Record<string, Todo[]>);
 
-  // Get sorted folders (ensure Uncategorized is first)
-  const sortedFolders = [...foldersWithUncategorized].sort((a, b) => {
-    if (a.id === 'uncategorized') return -1;
-    if (b.id === 'uncategorized') return 1;
-    return a.order - b.order;
-  });
+  // Get sorted folders (sort by order)
+  const sortedFolders = [...folders].sort((a, b) => a.order - b.order);
 
   // Filter todos
   const filterTodos = (todoList: Todo[]) => {
@@ -1126,7 +1334,7 @@ export default function App() {
             </div>
             <div className="folder-popup-content">
               <p style={{ margin: '0 0 20px', color: 'var(--text-primary)' }}>
-                Delete folder "<strong>{folderToDelete.name}</strong>"? Todos will be moved to Uncategorized.
+                Delete folder "<strong>{folderToDelete.name}</strong>"? All todos in this folder will be deleted.
               </p>
               <div className="folder-popup-actions">
                 <button className="folder-popup-cancel" onClick={() => setFolderToDelete(null)}>
@@ -1267,15 +1475,14 @@ export default function App() {
                 <div className="input-option-group folder-group">
                   <label className="input-option-label">Folder</label>
                   <CustomSelect
-                    value={targetFolderId || selectedFolderId || 'uncategorized'}
-                    options={foldersWithUncategorized.map(f => ({
+                    value={targetFolderId || selectedFolderId || ''}
+                    options={folders.map(f => ({
                       value: f.id,
                       label: f.name
                     }))}
                     onChange={(val) => {
-                      const folderId = val === 'uncategorized' ? null : val;
-                      setTargetFolderId(folderId);
-                      setSelectedFolderId(folderId);
+                      setTargetFolderId(val);
+                      setSelectedFolderId(val);
                     }}
                     placeholder="Folder"
                     className="folder-select"
@@ -1434,26 +1641,54 @@ export default function App() {
         </div>
       )}
 
-      <DragDropContext onDragEnd={handleDragEnd}>
+      <DragDropContext 
+        onDragEnd={handleDragEnd}
+        onDragStart={(start) => {
+          console.log('=== DRAG START ===');
+          console.log('Drag start:', start);
+          console.log('Draggable ID:', start.draggableId);
+          console.log('Source droppable:', start.source.droppableId);
+          console.log('Source index:', start.source.index);
+        }}
+      >
         <div className="folders-section">
-          {sortedFolders.map((folder) => {
-            const folderTodos = todosByFolder[folder.id] || [];
-            // Ensure we're using the latest folder object from state
-            const currentFolder = folders.find(f => f.id === folder.id) || folder;
-            return (
-              <FolderGroup
-                key={currentFolder.id}
-                folder={currentFolder}
-                todos={folderTodos}
-                onToggleCollapse={toggleFolderCollapse}
-                onRenameFolder={renameFolder}
-                onDeleteFolder={deleteFolder}
-                onMoveTodoToFolder={moveTodoToFolder}
-                renderTodos={(todos, folderId) => {
+          <Droppable droppableId="folders-list" type="FOLDER" isDropDisabled={false}>
+            {(provided, snapshot) => (
+              <div 
+                {...provided.droppableProps} 
+                ref={provided.innerRef}
+                className={`folders-droppable ${snapshot.isDraggingOver ? 'drag-over' : ''}`}
+              >
+                {sortedFolders.map((folder, index) => {
+                  const folderTodos = todosByFolder[folder.id] || [];
+                  // Ensure we're using the latest folder object from state
+                  const currentFolder = folders.find(f => f.id === folder.id) || folder;
+                  return (
+                    <Draggable
+                      key={currentFolder.id}
+                      draggableId={`folder-${currentFolder.id}`}
+                      index={index}
+                      type="FOLDER"
+                    >
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={`folder-draggable-wrapper ${snapshot.isDragging ? 'dragging' : ''} ${snapshot.isDraggingOver ? 'drag-over' : ''}`}
+                        >
+                          <FolderGroup
+                            folder={currentFolder}
+                            todos={folderTodos}
+                            onToggleCollapse={toggleFolderCollapse}
+                            onRenameFolder={renameFolder}
+                            onDeleteFolder={deleteFolder}
+                            onMoveTodoToFolder={moveTodoToFolder}
+                            dragHandleProps={provided.dragHandleProps}
+                            renderTodos={(todos, folderId) => {
                   const filtered = filterTodos(todos);
                   return (
                     <>
-                      <Droppable droppableId={`folder-${folderId}`}>
+                      <Droppable droppableId={`folder-${folderId}`} type="TODO">
                         {(provided) => (
                           <ul className="todo-list" {...provided.droppableProps} ref={provided.innerRef}>
                             {filtered.length === 0 ? (
@@ -1461,7 +1696,7 @@ export default function App() {
                                 <button
                                   className="empty-state-add-btn"
                                   onClick={() => {
-                                    setTargetFolderId(folderId === 'uncategorized' ? null : folderId);
+                                    setTargetFolderId(folderId);
                                     setEditingTodo(null);
                                     setInput("");
                                     setLabel("");
@@ -1480,7 +1715,7 @@ export default function App() {
                               </div>
                             ) : (
                               filtered.map((todo, index) => (
-                                <Draggable key={todo.id} draggableId={String(todo.id)} index={index}>
+                                <Draggable key={todo.id} draggableId={String(todo.id)} index={index} type="TODO">
                                   {(provided, snapshot) => (
                                     <li
                                       ref={provided.innerRef}
@@ -1552,8 +1787,15 @@ export default function App() {
                   );
                 }}
               />
-            );
-          })}
+                        </div>
+                      )}
+                    </Draggable>
+                  );
+                })}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
         </div>
       </DragDropContext>
     </div>

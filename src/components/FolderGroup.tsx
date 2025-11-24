@@ -10,6 +10,7 @@ type FolderGroupProps = {
   onRenameFolder: (folderId: string, newName: string) => void;
   onDeleteFolder: (folderId: string, folderName: string) => void;
   onMoveTodoToFolder: (todoId: number, folderId: string | null) => void;
+  dragHandleProps?: any;
   renderTodos: (todos: Todo[], folderId: string) => JSX.Element;
 };
 
@@ -20,6 +21,7 @@ export default function FolderGroup({
   onRenameFolder,
   onDeleteFolder,
   onMoveTodoToFolder,
+  dragHandleProps,
   renderTodos
 }: FolderGroupProps) {
   const [isRenaming, setIsRenaming] = useState(false);
@@ -65,10 +67,14 @@ export default function FolderGroup({
   return (
     <div className="folder-group">
       <div 
-        className="folder-header"
+        className={`folder-header ${dragHandleProps ? 'draggable' : ''}`}
         onClick={() => onToggleCollapse(folder.id)}
+        {...(dragHandleProps || {})}
       >
-        <button className="folder-toggle">
+        <button 
+          className="folder-toggle"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           <svg 
             width="12" 
             height="12" 
@@ -112,13 +118,19 @@ export default function FolderGroup({
             >
               {folder.name}
             </span>
-            <div className="folder-actions" onClick={(e) => e.stopPropagation()}>
+            <div 
+              className="folder-actions" 
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               <button
                 className="folder-action-btn"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setRenameValue(folder.name);
                   setIsRenaming(true);
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
                 title="Rename folder"
               >
                 <Icon icon="mdi:pencil" width="16" height="16" />
@@ -129,6 +141,7 @@ export default function FolderGroup({
                   e.stopPropagation();
                   onDeleteFolder(folder.id, folder.name);
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
                 title="Delete folder"
               >
                 <Icon icon="mdi:delete" width="16" height="16" />

@@ -63,6 +63,47 @@ body {
     z-index: 1;
 }
 
+.folders-droppable {
+    position: relative;
+}
+
+.folders-droppable.drag-over {
+    background: rgba(102, 126, 234, 0.02);
+    border-radius: 8px;
+}
+
+.folder-draggable-wrapper {
+    position: relative;
+}
+
+.folder-draggable-wrapper.drag-over::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    top: -2px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.6), transparent);
+    z-index: 10;
+    pointer-events: none;
+    border-radius: 1px;
+    box-shadow: 0 0 4px rgba(102, 126, 234, 0.3);
+}
+
+.folder-draggable-wrapper.drag-over::after {
+    content: '';
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    bottom: -2px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.6), transparent);
+    z-index: 10;
+    pointer-events: none;
+    border-radius: 1px;
+    box-shadow: 0 0 4px rgba(102, 126, 234, 0.3);
+}
+
 .add-folder-header-btn {
     width: auto;
     height: 30px;
@@ -853,7 +894,7 @@ body {
     list-style: none;
     padding: 0;
     margin: 0;
-    overflow-y: auto;
+    overflow: visible;
     flex: 1;
 }
 
