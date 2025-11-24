@@ -848,7 +848,10 @@ ipcMain.handle("load-todos", async () => {
 });
 
 ipcMain.handle("save-todos", async (event, todos) => {
-  saveTodos(todos);
+  // Optional: Keep saving a local backup if you want, 
+  // but for now we leave it as we only read from it for migration
+  // and we don't want to overwrite the backup with empty arrays if we stopped using it.
+  // saveTodos(todos); 
   return { success: true };
 });
 
@@ -858,7 +861,8 @@ ipcMain.handle("load-folders", async () => {
 });
 
 ipcMain.handle("save-folders", async (event, folders) => {
-  saveFolders(folders);
+  // Optional: Keep saving a local backup if you want.
+  // saveFolders(folders);
   return { success: true };
 });
 
@@ -1085,4 +1089,3 @@ autoUpdater.on("update-downloaded", (info) => {
     });
   }
 });
-
