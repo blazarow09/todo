@@ -3,16 +3,14 @@ import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, D
 import { Icon } from "@iconify/react";
 import "./App.css";
 import "./themes.css";
-import { Todo, FilterType, Theme, Folder, Attachment } from "./types";
+import { Todo, FilterType, Theme, Attachment } from "./types";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
-import { exportTodos, importTodos } from "./utils/storage";
-import { scheduleAllNotifications, checkAndNotifyOverdueTasks, clearOverdueNotificationTracking } from "./utils/notifications";
+import { scheduleAllNotifications } from "./utils/notifications";
 import TodoItem from "./components/TodoItem";
 import FilterBar from "./components/FilterBar";
 import SearchBar from "./components/SearchBar";
 import Settings from "./components/Settings";
 import CustomSelect from "./components/CustomSelect";
-import DatePicker from "./components/DatePicker";
 import LabelInput from "./components/LabelInput";
 import FolderGroup from "./components/FolderGroup";
 
@@ -24,9 +22,7 @@ import { useFirestoreTodos, useFirestoreFolders } from "./hooks/useFirestore";
 import { useFirestoreUndoRedo } from "./hooks/useFirestoreUndoRedo";
 import { migrateLocalDataToFirebase } from "./utils/migration";
 
-const STORAGE_KEY = "win_todo_items";
 const THEME_KEY = "todo_theme";
-const FOLDERS_KEY = "todo_folders";
 const SELECTED_FOLDER_KEY = "todo_selected_folder";
 const ALWAYS_ON_TOP_KEY = "todo_always_on_top";
 
@@ -34,22 +30,22 @@ const ALWAYS_ON_TOP_KEY = "todo_always_on_top";
 function AppContent() {
   const { user, loading: authLoading, logout } = useAuth();
   const [isMigrating, setIsMigrating] = useState(false);
-  
+
   // Firestore hooks
-  const { 
-    todos, 
-    loading: todosLoading, 
-    addTodo: firestoreAddTodo, 
-    updateTodo: firestoreUpdateTodo, 
-    deleteTodo: firestoreDeleteTodo 
+  const {
+    todos,
+    loading: todosLoading,
+    addTodo: firestoreAddTodo,
+    updateTodo: firestoreUpdateTodo,
+    deleteTodo: firestoreDeleteTodo
   } = useFirestoreTodos(user?.uid);
 
-  const { 
-    folders, 
-    loading: foldersLoading, 
-    addFolder: firestoreAddFolder, 
-    updateFolder: firestoreUpdateFolder, 
-    deleteFolder: firestoreDeleteFolder 
+  const {
+    folders,
+    loading: foldersLoading,
+    addFolder: firestoreAddFolder,
+    updateFolder: firestoreUpdateFolder,
+    deleteFolder: firestoreDeleteFolder
   } = useFirestoreFolders(user?.uid);
 
   const { trackAction, undo, redo, canUndo, canRedo } = useFirestoreUndoRedo(user?.uid);
@@ -58,17 +54,17 @@ function AppContent() {
   useEffect(() => {
     const migrateData = async () => {
       if (!user || !window.electronAPI?.loadTodos || !window.electronAPI?.loadFolders) return;
-      
+
       // Only migrate if Firestore is empty and we haven't migrated yet
       if (!todosLoading && !foldersLoading && todos.length === 0 && folders.length === 0) {
         setIsMigrating(true);
         try {
           const localTodos = await window.electronAPI.loadTodos();
           const localFolders = await window.electronAPI.loadFolders();
-          
+
           if ((localTodos && localTodos.length > 0) || (localFolders && localFolders.length > 0)) {
-             await migrateLocalDataToFirebase(localTodos || [], localFolders || [], user.uid);
-             console.log("Migration completed");
+            await migrateLocalDataToFirebase(localTodos || [], localFolders || [], user.uid);
+            console.log("Migration completed");
           }
         } catch (error) {
           console.error("Migration failed", error);
@@ -77,7 +73,7 @@ function AppContent() {
         }
       }
     };
-    
+
     migrateData();
   }, [user, todosLoading, foldersLoading, todos.length, folders.length]); // Only run when data is loaded
 
@@ -97,7 +93,7 @@ function AppContent() {
   const [notificationDuration, setNotificationDuration] = useState(15);
 
   // Theme & Settings State
-    const getInitialTheme = (): Theme => {
+  const getInitialTheme = (): Theme => {
     if (typeof window !== 'undefined') {
       const savedTheme = localStorage.getItem(THEME_KEY) as Theme;
       if (savedTheme === 'light' || savedTheme === 'dark') {
@@ -107,7 +103,7 @@ function AppContent() {
     return 'light';
   };
   const [theme, setTheme] = useState<Theme>(getInitialTheme());
-  
+
   const [alwaysOnTop, setAlwaysOnTop] = useState<boolean>(() => {
     const saved = localStorage.getItem(ALWAYS_ON_TOP_KEY);
     return saved !== null ? saved === 'true' : true;
@@ -134,7 +130,7 @@ function AppContent() {
 
   // --- Effects (Settings) ---
 
-    // Apply always-on-top to electron on mount
+  // Apply always-on-top to electron on mount
   useEffect(() => {
     setTimeout(() => {
       if ((window as any).electronAPI?.setAlwaysOnTop) {
@@ -152,7 +148,7 @@ function AppContent() {
     }
   }, []);
 
-    // Save background settings
+  // Save background settings
   useEffect(() => {
     if (backgroundImage) {
       localStorage.setItem("todo_background_image", backgroundImage);
@@ -190,7 +186,7 @@ function AppContent() {
     }
   }, [selectedFolderId]);
 
-    // Schedule notifications
+  // Schedule notifications
   useEffect(() => {
     if (window.electronAPI?.scheduleNotification && todos.length > 0) {
       scheduleAllNotifications(todos).catch(err => {
@@ -223,7 +219,7 @@ function AppContent() {
         notificationType: notificationEnabled ? notificationType : undefined,
         notificationDuration: notificationEnabled && notificationType !== 'at' ? notificationDuration : undefined,
       };
-      
+
       // Optimistic update handled by listener, but we track action for undo
       trackAction('update', 'todos', String(editingTodo.id), editingTodo); // Track previous state
       await firestoreUpdateTodo(String(editingTodo.id), updates);
@@ -273,17 +269,17 @@ function AppContent() {
   const toggleTodo = useCallback(async (id: number) => {
     const todo = todos.find(t => t.id === id);
     if (todo) {
-        trackAction('toggle', 'todos', String(id), todo);
-        await firestoreUpdateTodo(String(id), { done: !todo.done });
+      trackAction('toggle', 'todos', String(id), todo);
+      await firestoreUpdateTodo(String(id), { done: !todo.done });
     }
   }, [todos, firestoreUpdateTodo, trackAction]);
 
   const archiveTodo = useCallback(async (id: number) => {
-     const todo = todos.find(t => t.id === id);
-     if (todo) {
-         trackAction('update', 'todos', String(id), todo);
-         await firestoreUpdateTodo(String(id), { isArchived: true });
-     }
+    const todo = todos.find(t => t.id === id);
+    if (todo) {
+      trackAction('update', 'todos', String(id), todo);
+      await firestoreUpdateTodo(String(id), { isArchived: true });
+    }
   }, [todos, firestoreUpdateTodo, trackAction]);
 
   const deleteTodo = useCallback(async (id: number) => {
@@ -295,18 +291,18 @@ function AppContent() {
   }, [todos, firestoreDeleteTodo, trackAction]);
 
   const restoreTodo = useCallback(async (id: number) => {
-      const todo = todos.find(t => t.id === id);
-      if (todo) {
-          trackAction('update', 'todos', String(id), todo);
-          await firestoreUpdateTodo(String(id), { isArchived: false });
-      }
+    const todo = todos.find(t => t.id === id);
+    if (todo) {
+      trackAction('update', 'todos', String(id), todo);
+      await firestoreUpdateTodo(String(id), { isArchived: false });
+    }
   }, [todos, firestoreUpdateTodo, trackAction]);
 
   const clearCompleted = useCallback(() => {
     // Batch updates are better, but we'll do individual for now
     const completed = todos.filter(t => t.done);
     completed.forEach(t => {
-        archiveTodo(t.id);
+      archiveTodo(t.id);
     });
   }, [todos, archiveTodo]);
 
@@ -316,9 +312,9 @@ function AppContent() {
   const createFolder = useCallback(async () => {
     if (!newFolderName.trim()) return;
     await firestoreAddFolder({
-        name: newFolderName.trim(),
-        collapsed: false,
-        order: folders.length
+      name: newFolderName.trim(),
+      collapsed: false,
+      order: folders.length
     });
     setNewFolderName("");
     setShowFolderPopup(false);
@@ -327,7 +323,7 @@ function AppContent() {
   const toggleFolderCollapse = useCallback(async (folderId: string) => {
     const folder = folders.find(f => f.id === folderId);
     if (folder) {
-        await firestoreUpdateFolder(folderId, { collapsed: !folder.collapsed });
+      await firestoreUpdateFolder(folderId, { collapsed: !folder.collapsed });
     }
   }, [folders, firestoreUpdateFolder]);
 
@@ -335,8 +331,8 @@ function AppContent() {
     if (!newName || !newName.trim()) return;
     const folder = folders.find(f => f.id === folderId);
     if (folder) {
-        trackAction('update', 'folders', folderId, folder);
-        await firestoreUpdateFolder(folderId, { name: newName.trim() });
+      trackAction('update', 'folders', folderId, folder);
+      await firestoreUpdateFolder(folderId, { name: newName.trim() });
     }
   }, [folders, firestoreUpdateFolder, trackAction]);
 
@@ -346,7 +342,7 @@ function AppContent() {
 
   const confirmDeleteFolder = useCallback(async () => {
     if (!folderToDelete) return;
-    
+
     // Delete folder
     // Optional: Delete todos in folder or move them?
     // For now, just delete folder document. Todos with this folderId will be orphaned or hidden
@@ -357,18 +353,18 @@ function AppContent() {
     await firestoreDeleteFolder(folderToDelete.id);
     setFolderToDelete(null);
   }, [folderToDelete, todos, firestoreDeleteFolder, firestoreDeleteTodo]);
-  
-    const moveTodoToFolder = useCallback(async (todoId: number, folderId: string | null) => {
-      const todo = todos.find(t => t.id === todoId);
-      if (todo) {
-         trackAction('update', 'todos', String(todoId), todo);
-         await firestoreUpdateTodo(String(todoId), { folderId });
-      }
+
+  const moveTodoToFolder = useCallback(async (todoId: number, folderId: string | null) => {
+    const todo = todos.find(t => t.id === todoId);
+    if (todo) {
+      trackAction('update', 'todos', String(todoId), todo);
+      await firestoreUpdateTodo(String(todoId), { folderId });
+    }
   }, [todos, firestoreUpdateTodo, trackAction]);
 
 
   // --- UI Helpers ---
-  
+
   const handleEditTodo = useCallback((todo: Todo) => {
     setEditingTodo(todo);
     setInput(todo.text);
@@ -385,49 +381,49 @@ function AppContent() {
 
   // Drag and Drop
   const handleDragEnd = useCallback((result: DropResult) => {
-      // ... existing logic adapted ...
-       if (!result.destination) return;
-       
-       // Folder reorder
-       if (result.type === 'FOLDER' && result.source.droppableId === 'folders-list') {
-           // Logic to reorder folders array locally then save
-           // With firestore, we need to update 'order' field for affected folders
-           // This is expensive if we update all. 
-           // Simplified: Just update the moved one if possible, but usually linked list or re-indexing needed.
-           // Let's implement a simple swap or re-index for now.
-           const sourceIndex = result.source.index;
-           const destIndex = result.destination.index;
-           if (sourceIndex === destIndex) return;
+    // ... existing logic adapted ...
+    if (!result.destination) return;
 
-           const sorted = [...folders].sort((a, b) => a.order - b.order);
-           const [moved] = sorted.splice(sourceIndex, 1);
-           sorted.splice(destIndex, 0, moved);
-           
-           // Update all orders
-           sorted.forEach((f, index) => {
-               if (f.order !== index) {
-                   firestoreUpdateFolder(f.id, { order: index });
-               }
-           });
-           return;
-       }
+    // Folder reorder
+    if (result.type === 'FOLDER' && result.source.droppableId === 'folders-list') {
+      // Logic to reorder folders array locally then save
+      // With firestore, we need to update 'order' field for affected folders
+      // This is expensive if we update all. 
+      // Simplified: Just update the moved one if possible, but usually linked list or re-indexing needed.
+      // Let's implement a simple swap or re-index for now.
+      const sourceIndex = result.source.index;
+      const destIndex = result.destination.index;
+      if (sourceIndex === destIndex) return;
 
-       // Todo drag
-        if (result.type === 'TODO') {
-            // Logic for todo move
-            // We need to handle folder change and order change
-            // Since we don't have an 'order' field on todos in schema yet (implied by createdAt),
-            // we might just handle folder change.
-            // If you want reordering within folder, we need 'order' field on todos.
-            // For now, just handle folder change:
-             const sourceDroppableId = result.source.droppableId;
-             const destDroppableId = result.destination.droppableId;
-             
-             if (sourceDroppableId !== destDroppableId && destDroppableId.startsWith('folder-')) {
-                 const folderId = destDroppableId.replace('folder-', '');
-                 moveTodoToFolder(parseInt(result.draggableId), folderId);
-             }
+      const sorted = [...folders].sort((a, b) => a.order - b.order);
+      const [moved] = sorted.splice(sourceIndex, 1);
+      sorted.splice(destIndex, 0, moved);
+
+      // Update all orders
+      sorted.forEach((f, index) => {
+        if (f.order !== index) {
+          firestoreUpdateFolder(f.id, { order: index });
         }
+      });
+      return;
+    }
+
+    // Todo drag
+    if (result.type === 'TODO') {
+      // Logic for todo move
+      // We need to handle folder change and order change
+      // Since we don't have an 'order' field on todos in schema yet (implied by createdAt),
+      // we might just handle folder change.
+      // If you want reordering within folder, we need 'order' field on todos.
+      // For now, just handle folder change:
+      const sourceDroppableId = result.source.droppableId;
+      const destDroppableId = result.destination.droppableId;
+
+      if (sourceDroppableId !== destDroppableId && destDroppableId.startsWith('folder-')) {
+        const folderId = destDroppableId.replace('folder-', '');
+        moveTodoToFolder(parseInt(result.draggableId), folderId);
+      }
+    }
 
   }, [folders, firestoreUpdateFolder, moveTodoToFolder]);
 
@@ -438,7 +434,7 @@ function AppContent() {
       else if (input) setInput("");
     },
     ctrlF: () => {
-        // Focus search
+      // Focus search
     },
     ctrlD: () => setTheme(prev => prev === 'light' ? 'dark' : 'light'),
     ctrlZ: undo,
@@ -446,18 +442,18 @@ function AppContent() {
   });
 
   // Filter logic...
-    const labels = Array.from(new Set(todos.map(t => t.label).filter(Boolean)));
-    const completedCount = todos.filter((t) => t.done && !t.isArchived).length;
-    const sortedFolders = [...folders].sort((a, b) => a.order - b.order);
-    const todosByFolder = todos.reduce((acc, todo) => {
+  const labels = Array.from(new Set(todos.map(t => t.label).filter(Boolean)));
+  const completedCount = todos.filter((t) => t.done && !t.isArchived).length;
+  const sortedFolders = [...folders].sort((a, b) => a.order - b.order);
+  const todosByFolder = todos.reduce((acc, todo) => {
     if (todo.folderId) {
       if (!acc[todo.folderId]) acc[todo.folderId] = [];
       acc[todo.folderId].push(todo);
     }
     return acc;
   }, {} as Record<string, Todo[]>);
-  
-    const filterTodos = (todoList: Todo[]) => {
+
+  const filterTodos = (todoList: Todo[]) => {
     return todoList.filter(todo => {
       if (todo.isArchived) return false;
       if (filter === 'active' && todo.done) return false;
@@ -467,14 +463,14 @@ function AppContent() {
       return true;
     });
   };
-  
+
   const hasBackground = backgroundImage || backgroundColor;
 
 
   // Check if we're on the auth callback route
-  const isAuthCallback = window.location.pathname === '/auth-callback' || 
-                         window.location.search.includes('auth-callback') ||
-                         window.location.hash.includes('auth-callback');
+  const isAuthCallback = window.location.pathname === '/auth-callback' ||
+    window.location.search.includes('auth-callback') ||
+    window.location.hash.includes('auth-callback');
 
   // Show callback page if on callback route
   if (isAuthCallback) {
@@ -497,10 +493,10 @@ function AppContent() {
         '--background-overlay-opacity': hasBackground ? overlayOpacity : 0
       } as React.CSSProperties}
     >
-        {hasBackground && <div className="background-overlay" style={{ opacity: overlayOpacity }} />}
-        
-        {/* ... TITLE BAR ... */}
-        <div className="titlebar">
+      {hasBackground && <div className="background-overlay" style={{ opacity: overlayOpacity }} />}
+
+      {/* ... TITLE BAR ... */}
+      <div className="titlebar">
         <div className="titlebar-search">
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
         </div>
@@ -513,7 +509,7 @@ function AppContent() {
              <Icon icon="mdi:logout" width="20" height="20" />
           </button> */}
         </div>
-         <div className="window-controls">
+        <div className="window-controls">
           <button className="control-btn minimize" onClick={() => (window as any).electronAPI?.minimize()} title="Minimize">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M1 5H9" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
@@ -526,23 +522,23 @@ function AppContent() {
           </button>
         </div>
       </div>
-      
+
       {/* MIGRATION STATUS */}
       {isMigrating && (
-          <div className="migration-banner">
-              Migrating your local data to cloud...
-          </div>
+        <div className="migration-banner">
+          Migrating your local data to cloud...
+        </div>
       )}
 
       {/* ... REST OF UI (Popups, Modals, Lists) ... */}
       {/* Reuse existing JSX structure but pass new handlers */}
-      
+
       {/* Folder Creation Popup */}
       {showFolderPopup && (
         <div className="folder-popup-overlay" onClick={() => setShowFolderPopup(false)}>
           <div className="folder-popup" onClick={(e) => e.stopPropagation()}>
-             {/* ... content ... */}
-             <div className="folder-popup-header">
+            {/* ... content ... */}
+            <div className="folder-popup-header">
               <h3>Create New Folder</h3>
               <button className="folder-popup-close" onClick={() => setShowFolderPopup(false)}>×</button>
             </div>
@@ -567,23 +563,23 @@ function AppContent() {
           </div>
         </div>
       )}
-      
-       {/* Delete Confirmation Modal */}
+
+      {/* Delete Confirmation Modal */}
       {folderToDelete && (
         <div className="folder-popup-overlay" onClick={() => setFolderToDelete(null)}>
-            <div className="folder-popup" onClick={(e) => e.stopPropagation()}>
-                 <div className="folder-popup-header">
-                    <h3>Delete Folder</h3>
-                    <button className="folder-popup-close" onClick={() => setFolderToDelete(null)}>×</button>
-                 </div>
-                 <div className="folder-popup-content">
-                    <p>Delete folder "<strong>{folderToDelete.name}</strong>"? All todos in this folder will be deleted.</p>
-                    <div className="folder-popup-actions">
-                        <button className="folder-popup-cancel" onClick={() => setFolderToDelete(null)}>Cancel</button>
-                        <button className="folder-popup-delete" onClick={confirmDeleteFolder}>Delete</button>
-                    </div>
-                 </div>
+          <div className="folder-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="folder-popup-header">
+              <h3>Delete Folder</h3>
+              <button className="folder-popup-close" onClick={() => setFolderToDelete(null)}>×</button>
             </div>
+            <div className="folder-popup-content">
+              <p>Delete folder "<strong>{folderToDelete.name}</strong>"? All todos in this folder will be deleted.</p>
+              <div className="folder-popup-actions">
+                <button className="folder-popup-cancel" onClick={() => setFolderToDelete(null)}>Cancel</button>
+                <button className="folder-popup-delete" onClick={confirmDeleteFolder}>Delete</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -599,17 +595,17 @@ function AppContent() {
         />
       )}
 
-       <Settings
+      <Settings
         todos={todos}
         onDelete={deleteTodo}
         onRestore={restoreTodo}
-        onClearArchived={() => {}} // Not implemented in hook yet
+        onClearArchived={() => { }} // Not implemented in hook yet
         theme={theme}
         onThemeChange={setTheme}
         alwaysOnTop={alwaysOnTop}
         onAlwaysOnTopChange={(v) => {
-            setAlwaysOnTop(v);
-            if ((window as any).electronAPI?.setAlwaysOnTop) (window as any).electronAPI.setAlwaysOnTop(v);
+          setAlwaysOnTop(v);
+          if ((window as any).electronAPI?.setAlwaysOnTop) (window as any).electronAPI.setAlwaysOnTop(v);
         }}
         backgroundImage={backgroundImage}
         onBackgroundImageChange={setBackgroundImage}
@@ -619,26 +615,26 @@ function AppContent() {
         onBackgroundOverlayOpacityChange={setOverlayOpacity}
         launchAtStartup={launchAtStartup}
         onLaunchAtStartupChange={(v) => {
-            setLaunchAtStartup(v);
-             if ((window as any).electronAPI?.setLaunchAtStartup) (window as any).electronAPI.setLaunchAtStartup(v);
+          setLaunchAtStartup(v);
+          if ((window as any).electronAPI?.setLaunchAtStartup) (window as any).electronAPI.setLaunchAtStartup(v);
         }}
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
-        onExport={() => {}} // Export needs refactor
-        onImport={() => {}} // Import needs refactor
+        onExport={() => { }} // Export needs refactor
+        onImport={() => { }} // Import needs refactor
         folders={folders}
         onCreateFolder={(name) => {
-             firestoreAddFolder({
-                name: name,
-                collapsed: false,
-                order: folders.length
-            });
+          firestoreAddFolder({
+            name: name,
+            collapsed: false,
+            order: folders.length
+          });
         }}
         onLogout={logout}
       />
 
-       {/* FAB */}
-       {folders.length > 0 && (
+      {/* FAB */}
+      {folders.length > 0 && (
         <button
           className="fab-add-todo"
           onClick={() => {
@@ -660,126 +656,126 @@ function AppContent() {
 
       {/* Todo Modal */}
       {showTodoModal && (
-          <div className="todo-modal-overlay" onClick={() => setShowTodoModal(false)}>
-               {/* ... simplified modal content reuse ... */}
-                <div className="todo-modal" onClick={(e) => e.stopPropagation()}>
-                     {/* ... header ... */}
-                     <div className="todo-modal-header">
-                        <h3>{editingTodo ? 'Edit Todo' : 'Create New Todo'}</h3>
-                        <button className="todo-modal-close" onClick={() => setShowTodoModal(false)}>×</button>
-                     </div>
-                     <div className="todo-modal-content">
-                        <textarea 
-                            className="input input-textarea" 
-                            value={input} 
-                            onChange={e => setInput(e.target.value)}
-                            onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTodo(targetFolderId); }}}
-                            placeholder="What needs to be done?"
-                            autoFocus
-                        />
-                        
-                         <div className="input-options">
-                             <CustomSelect 
-                                value={targetFolderId || selectedFolderId || ''}
-                                options={folders.map(f => ({ value: f.id, label: f.name }))}
-                                onChange={val => { setTargetFolderId(val); setSelectedFolderId(val); }}
-                                placeholder="Folder"
-                             />
-                             <CustomSelect
-                                value={priority}
-                                options={[{value:'low',label:'Low'},{value:'medium',label:'Medium'},{value:'high',label:'High'}]}
-                                onChange={v => setPriority(v as any)}
-                                placeholder="Priority"
-                             />
-                             <LabelInput value={label} options={labels} onChange={setLabel} onAddNew={setLabel} placeholder="Label" />
-                         </div>
-                         
-                         {/* Date & Attachments omitted for brevity but should be here */}
-                         
-                         <div className="todo-modal-actions">
-                            <button className="todo-modal-cancel" onClick={() => setShowTodoModal(false)}>Cancel</button>
-                            <button className="todo-modal-create" onClick={() => addTodo(targetFolderId)} disabled={!input.trim()}>
-                                {editingTodo ? 'Save' : 'Create'}
-                            </button>
-                         </div>
-                     </div>
-                </div>
+        <div className="todo-modal-overlay" onClick={() => setShowTodoModal(false)}>
+          {/* ... simplified modal content reuse ... */}
+          <div className="todo-modal" onClick={(e) => e.stopPropagation()}>
+            {/* ... header ... */}
+            <div className="todo-modal-header">
+              <h3>{editingTodo ? 'Edit Todo' : 'Create New Todo'}</h3>
+              <button className="todo-modal-close" onClick={() => setShowTodoModal(false)}>×</button>
+            </div>
+            <div className="todo-modal-content">
+              <textarea
+                className="input input-textarea"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTodo(targetFolderId); } }}
+                placeholder="What needs to be done?"
+                autoFocus
+              />
+
+              <div className="input-options">
+                <CustomSelect
+                  value={targetFolderId || selectedFolderId || ''}
+                  options={folders.map(f => ({ value: f.id, label: f.name }))}
+                  onChange={val => { setTargetFolderId(val); setSelectedFolderId(val); }}
+                  placeholder="Folder"
+                />
+                <CustomSelect
+                  value={priority}
+                  options={[{ value: 'low', label: 'Low' }, { value: 'medium', label: 'Medium' }, { value: 'high', label: 'High' }]}
+                  onChange={v => setPriority(v as any)}
+                  placeholder="Priority"
+                />
+                <LabelInput value={label} options={labels} onChange={setLabel} onAddNew={setLabel} placeholder="Label" />
+              </div>
+
+              {/* Date & Attachments omitted for brevity but should be here */}
+
+              <div className="todo-modal-actions">
+                <button className="todo-modal-cancel" onClick={() => setShowTodoModal(false)}>Cancel</button>
+                <button className="todo-modal-create" onClick={() => addTodo(targetFolderId)} disabled={!input.trim()}>
+                  {editingTodo ? 'Save' : 'Create'}
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
       )}
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="folders-section">
-            {sortedFolders.length === 0 ? (
-                 <div className="empty-folders-screen">
-                    {/* ... empty state ... */}
-                    <h2>No Folders Yet</h2>
-                    <button onClick={() => setShowFolderPopup(true)}>Create Your First Folder</button>
-                 </div>
-            ) : (
-                 <Droppable droppableId="folders-list" type="FOLDER">
-                     {(provided: DroppableProvided, snapshot: { isDraggingOver: boolean }) => (
-                         <div {...provided.droppableProps} ref={provided.innerRef} className="folders-droppable">
-                             {sortedFolders.map((folder, index) => {
-                                 const folderTodos = todosByFolder[folder.id] || [];
-                                 return (
-                                     <Draggable key={folder.id} draggableId={`folder-${folder.id}`} index={index}>
-                                         {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
-                                             <div ref={provided.innerRef} {...provided.draggableProps} className="folder-draggable-wrapper">
-                                                  <FolderGroup
-                                                    folder={folder}
-                                                    todos={folderTodos}
-                                                    onToggleCollapse={toggleFolderCollapse}
-                                                    onRenameFolder={renameFolder}
-                                                    onDeleteFolder={deleteFolder}
-                                                    onMoveTodoToFolder={moveTodoToFolder}
-                                                    dragHandleProps={provided.dragHandleProps}
-                                                    renderTodos={(todos, folderId) => {
-                                                        const filtered = filterTodos(todos);
-                                                        return (
-                                                            <Droppable droppableId={`folder-${folderId}`} type="TODO">
-                                                                {(provided: DroppableProvided) => (
-                                                                    <ul className="todo-list" {...provided.droppableProps} ref={provided.innerRef}>
-                                                                        {filtered.map((todo, idx) => (
-                                                                            <Draggable key={todo.id} draggableId={String(todo.id)} index={idx}>
-                                                                                {(provided: DraggableProvided) => (
-                                                                                    <li ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}>
-                                                                                        <TodoItem
-                                                                                            todo={todo}
-                                                                                            onToggle={toggleTodo}
-                                                                                            onUpdate={updateTodo}
-                                                                                            onDelete={archiveTodo}
-                                                                                            onEdit={handleEditTodo}
-                                                                                            searchQuery={searchQuery}
-                                                                                        />
-                                                                                    </li>
-                                                                                )}
-                                                                            </Draggable>
-                                                                        ))}
-                                                                        {provided.placeholder}
-                                                                        {/* Add button row ... */}
-                                                                         <div className="folder-add-todo-row" onClick={(e) => {
-                                                                              e.stopPropagation();
-                                                                              setTargetFolderId(folderId);
-                                                                              setShowTodoModal(true);
-                                                                         }}>
-                                                                             +
-                                                                         </div>
-                                                                    </ul>
-                                                                )}
-                                                            </Droppable>
-                                                        );
-                                                    }}
-                                                  />
-                                             </div>
-                                         )}
-                                     </Draggable>
-                                 )
-                             })}
-                             {provided.placeholder}
-                         </div>
-                     )}
-                 </Droppable>
-            )}
+          {sortedFolders.length === 0 ? (
+            <div className="empty-folders-screen">
+              {/* ... empty state ... */}
+              <h2>No Folders Yet</h2>
+              <button onClick={() => setShowFolderPopup(true)}>Create Your First Folder</button>
+            </div>
+          ) : (
+            <Droppable droppableId="folders-list" type="FOLDER">
+              {(provided: DroppableProvided, snapshot: { isDraggingOver: boolean }) => (
+                <div {...provided.droppableProps} ref={provided.innerRef} className="folders-droppable">
+                  {sortedFolders.map((folder, index) => {
+                    const folderTodos = todosByFolder[folder.id] || [];
+                    return (
+                      <Draggable key={folder.id} draggableId={`folder-${folder.id}`} index={index}>
+                        {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
+                          <div ref={provided.innerRef} {...provided.draggableProps} className="folder-draggable-wrapper">
+                            <FolderGroup
+                              folder={folder}
+                              todos={folderTodos}
+                              onToggleCollapse={toggleFolderCollapse}
+                              onRenameFolder={renameFolder}
+                              onDeleteFolder={deleteFolder}
+                              onMoveTodoToFolder={moveTodoToFolder}
+                              dragHandleProps={provided.dragHandleProps}
+                              renderTodos={(todos, folderId) => {
+                                const filtered = filterTodos(todos);
+                                return (
+                                  <Droppable droppableId={`folder-${folderId}`} type="TODO">
+                                    {(provided: DroppableProvided) => (
+                                      <ul className="todo-list" {...provided.droppableProps} ref={provided.innerRef}>
+                                        {filtered.map((todo, idx) => (
+                                          <Draggable key={todo.id} draggableId={String(todo.id)} index={idx}>
+                                            {(provided: DraggableProvided) => (
+                                              <li ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}>
+                                                <TodoItem
+                                                  todo={todo}
+                                                  onToggle={toggleTodo}
+                                                  onUpdate={updateTodo}
+                                                  onDelete={archiveTodo}
+                                                  onEdit={handleEditTodo}
+                                                  searchQuery={searchQuery}
+                                                />
+                                              </li>
+                                            )}
+                                          </Draggable>
+                                        ))}
+                                        {provided.placeholder}
+                                        {/* Add button row ... */}
+                                        <div className="folder-add-todo-row" onClick={(e) => {
+                                          e.stopPropagation();
+                                          setTargetFolderId(folderId);
+                                          setShowTodoModal(true);
+                                        }}>
+                                          +
+                                        </div>
+                                      </ul>
+                                    )}
+                                  </Droppable>
+                                );
+                              }}
+                            />
+                          </div>
+                        )}
+                      </Draggable>
+                    )
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          )}
         </div>
       </DragDropContext>
 

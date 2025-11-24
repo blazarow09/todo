@@ -322,6 +322,36 @@ export default function Settings({
               <div className="settings-version">
                 <span>Version {(globalThis as any).__APP_VERSION__ || '2.3.3'}</span>
               </div>
+
+              {onLogout && (
+                <div className="settings-section" style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                  <button
+                    className="logout-btn"
+                    onClick={() => {
+                      onLogout();
+                      onClose();
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      backgroundColor: 'var(--danger-color, #e74c3c)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <Icon icon="mdi:logout" width="18" height="18" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <div className="archived-list-container">
