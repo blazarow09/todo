@@ -9,11 +9,13 @@ const isElectron = () => {
 };
 
 const ELECTRON_FLOW_FLAG = 'electron-auth-flow';
+const ELECTRON_REDIRECT_FLAG = 'electron-auth-redirect-started';
 
 const markElectronFlow = () => {
     if (typeof window === 'undefined') return;
     try {
         window.sessionStorage.setItem(ELECTRON_FLOW_FLAG, '1');
+        window.sessionStorage.removeItem(ELECTRON_REDIRECT_FLAG);
     } catch (err) {
         console.warn('AuthCallback: Unable to persist electron auth flag', err);
     }
@@ -23,6 +25,7 @@ const clearElectronFlow = () => {
     if (typeof window === 'undefined') return;
     try {
         window.sessionStorage.removeItem(ELECTRON_FLOW_FLAG);
+        window.sessionStorage.removeItem(ELECTRON_REDIRECT_FLAG);
     } catch (err) {
         console.warn('AuthCallback: Unable to clear electron auth flag', err);
     }
@@ -35,6 +38,33 @@ const shouldReturnToDesktop = () => {
         return window.sessionStorage.getItem(ELECTRON_FLOW_FLAG) === '1';
     } catch {
         return false;
+    }
+};
+
+const hasRedirectStarted = () => {
+    if (typeof window === 'undefined') return false;
+    try {
+        return window.sessionStorage.getItem(ELECTRON_REDIRECT_FLAG) === '1';
+    } catch {
+        return false;
+    }
+};
+
+const markRedirectStarted = () => {
+    if (typeof window === 'undefined') return;
+    try {
+        window.sessionStorage.setItem(ELECTRON_REDIRECT_FLAG, '1');
+    } catch (err) {
+        console.warn('AuthCallback: Unable to mark redirect start', err);
+    }
+};
+
+const clearRedirectState = () => {
+    if (typeof window === 'undefined') return;
+    try {
+        window.sessionStorage.removeItem(ELECTRON_REDIRECT_FLAG);
+    } catch (err) {
+        console.warn('AuthCallback: Unable to clear redirect state', err);
     }
 };
 
@@ -80,6 +110,7 @@ export default function AuthCallback() {
                         if (shouldReturnToDesktop() && mounted) {
                             // In Electron, redirect to protocol
                             clearElectronFlow();
+                            clearRedirectState();
                             window.location.href = `mytodo://auth?token=${encodeURIComponent(idToken)}`;
                         } else {
                             // In web, just redirect to home (user is already signed in)
@@ -109,6 +140,7 @@ export default function AuthCallback() {
                         const idToken = await currentUser.getIdToken();
                         if (shouldReturnToDesktop() && mounted) {
                             clearElectronFlow();
+                            clearRedirectState();
                             window.location.href = `mytodo://auth?token=${encodeURIComponent(idToken)}`;
                         } else {
                             setStatus('Sign-in successful! Redirecting...');
@@ -139,6 +171,7 @@ export default function AuthCallback() {
                             const idToken = await user.getIdToken();
                             if (shouldReturnToDesktop()) {
                                 clearElectronFlow();
+                                clearRedirectState();
                                 window.location.href = `mytodo://auth?token=${encodeURIComponent(idToken)}`;
                             } else {
                                 setStatus('Sign-in successful! Redirecting...');
@@ -159,19 +192,27 @@ export default function AuthCallback() {
                 const hasAuthParams = urlParams.has('code') || urlParams.has('error');
 
                 if (!hasAuthParams) {
-                    // No auth params and no user - initiate OAuth redirect to Google
-                    setStatus('Redirecting to Google...');
-                    console.log('AuthCallback: No user found, initiating Google OAuth redirect...');
-                    try {
-                        await signInWithRedirect(auth, googleProvider);
-                        // signInWithRedirect redirects immediately, so this line won't execute
-                    } catch (redirectError: any) {
-                        console.error('AuthCallback: Redirect error:', redirectError);
-                        const errorMsg = `Redirect failed: ${redirectError.message}`;
-                        setError(errorMsg);
-                        if (shouldReturnToDesktop() && mounted) {
-                            clearElectronFlow();
-                            window.location.href = `mytodo://auth?error=${encodeURIComponent(errorMsg)}`;
+                    if (hasRedirectStarted()) {
+                        // We've already kicked off the redirect once; wait for Firebase to finish
+                        setStatus('Waiting for authentication to complete...');
+                        console.log('AuthCallback: Redirect already started, waiting for Firebase to return redirect result...');
+                    } else {
+                        // No auth params and no user - initiate OAuth redirect to Google
+                        setStatus('Redirecting to Google...');
+                        console.log('AuthCallback: No user found, initiating Google OAuth redirect...');
+                        try {
+                            markRedirectStarted();
+                            await signInWithRedirect(auth, googleProvider);
+                            // signInWithRedirect redirects immediately, so this line won't execute
+                        } catch (redirectError: any) {
+                            console.error('AuthCallback: Redirect error:', redirectError);
+                            clearRedirectState();
+                            const errorMsg = `Redirect failed: ${redirectError.message}`;
+                            setError(errorMsg);
+                            if (shouldReturnToDesktop() && mounted) {
+                                clearElectronFlow();
+                                window.location.href = `mytodo://auth?error=${encodeURIComponent(errorMsg)}`;
+                            }
                         }
                     }
                 } else {
