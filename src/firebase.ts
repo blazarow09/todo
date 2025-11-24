@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 
 // Placeholder configuration - User needs to update this with real keys
 const firebaseConfig = {
@@ -16,7 +16,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
 
 // Enable offline persistence
 enableIndexedDbPersistence(db).catch((err) => {
@@ -29,5 +28,5 @@ enableIndexedDbPersistence(db).catch((err) => {
   }
 });
 
-export { db, auth, googleProvider };
+export { db, auth };
 

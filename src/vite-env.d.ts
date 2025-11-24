@@ -35,8 +35,6 @@ declare global {
       saveFile?: (data: string, filename: string) => Promise<{ success: boolean; error?: string }>;
       openFile?: (callback: (data: string) => void) => void;
       migrateFromLocalStorage?: (data: any) => Promise<{ success: boolean; error?: string }>;
-      // Protocol callback handler for deep linking
-      onProtocolCallback?: (callback: (url: string) => void) => void;
     };
   }
 }
