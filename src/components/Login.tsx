@@ -1,6 +1,39 @@
 import React, { useState } from 'react';
+import {
+  IonApp,
+  IonContent,
+  IonButton,
+  IonSpinner,
+  IonIcon,
+  setupIonicReact,
+} from '@ionic/react';
+import { 
+  checkmarkCircleOutline, 
+  alertCircleOutline,
+  mailOutline,
+  lockClosedOutline,
+  eyeOutline,
+  eyeOffOutline,
+} from 'ionicons/icons';
 import { useAuth } from '../contexts/AuthContext';
-import './Login.css';
+
+// Ionic CSS imports
+import "@ionic/react/css/core.css";
+import "@ionic/react/css/normalize.css";
+import "@ionic/react/css/structure.css";
+import "@ionic/react/css/typography.css";
+import "@ionic/react/css/padding.css";
+import "@ionic/react/css/float-elements.css";
+import "@ionic/react/css/text-alignment.css";
+import "@ionic/react/css/text-transformation.css";
+import "@ionic/react/css/flex-utils.css";
+import "@ionic/react/css/display.css";
+
+// Custom theme
+import "../theme/ionic-variables.css";
+import "./Login.css";
+
+setupIonicReact({ mode: 'md' });
 
 type AuthMode = 'signin' | 'signup' | 'reset';
 
@@ -10,6 +43,8 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -62,84 +97,179 @@ export default function Login() {
   };
 
   if (loading) {
-    return <div className="login-container">Loading...</div>;
+    return (
+      <IonApp>
+        <IonContent className="login-content">
+          <div className="login-loading">
+            <IonSpinner name="crescent" color="primary" />
+            <span>Loading...</span>
+          </div>
+        </IonContent>
+      </IonApp>
+    );
   }
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h1>My Tasks</h1>
-        <p>{mode === 'signin' ? 'Sign in to access your tasks' : mode === 'signup' ? 'Create an account' : 'Reset your password'}</p>
+    <IonApp>
+      <IonContent className="login-content" scrollY={false}>
+        <div className="login-container">
+          <div className="login-card">
+            {/* Logo/Header */}
+            <div className="login-header">
+              <div className="login-logo">
+                <span className="login-logo-icon">✓</span>
+              </div>
+              <h1 className="login-title">My Tasks</h1>
+              <p className="login-subtitle">
+                {mode === 'signin' && 'Welcome back! Sign in to continue'}
+                {mode === 'signup' && 'Create your account'}
+                {mode === 'reset' && 'Reset your password'}
+              </p>
+            </div>
 
-        {error && <div className="login-alert error">{error}</div>}
-        {message && <div className="login-alert success">{message}</div>}
+            {/* Error message */}
+            {error && (
+              <div className="login-alert login-alert-error">
+                <IonIcon icon={alertCircleOutline} />
+                <span>{error}</span>
+              </div>
+            )}
 
-        <form className="login-form" onSubmit={handleSubmit}>
-          <label className="login-label">
-            Email
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="login-input"
-              required
-            />
-          </label>
+            {/* Success message */}
+            {message && (
+              <div className="login-alert login-alert-success">
+                <IonIcon icon={checkmarkCircleOutline} />
+                <span>{message}</span>
+              </div>
+            )}
 
-          {mode !== 'reset' && (
-            <label className="login-label">
-              Password
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="login-input"
-                required
-                minLength={6}
-              />
-            </label>
-          )}
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="login-form">
+              {/* Email field */}
+              <div className="login-field">
+                <label className="login-label">Email</label>
+                <div className="login-input-wrapper">
+                  <IonIcon icon={mailOutline} className="login-input-icon" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="login-input"
+                    required
+                  />
+                </div>
+              </div>
 
-          {mode === 'signup' && (
-            <label className="login-label">
-              Confirm Password
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="login-input"
-                required
-                minLength={6}
-              />
-            </label>
-          )}
+              {/* Password field */}
+              {mode !== 'reset' && (
+                <div className="login-field">
+                  <label className="login-label">Password</label>
+                  <div className="login-input-wrapper">
+                    <IonIcon icon={lockClosedOutline} className="login-input-icon" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="login-input"
+                      required
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      className="login-password-toggle"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      <IonIcon icon={showPassword ? eyeOffOutline : eyeOutline} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
-          <button className="login-btn" type="submit" disabled={submitting}>
-            {mode === 'signin' && (submitting ? 'Signing in...' : 'Sign In')}
-            {mode === 'signup' && (submitting ? 'Creating account...' : 'Create Account')}
-            {mode === 'reset' && (submitting ? 'Sending email...' : 'Send Reset Email')}
-          </button>
-        </form>
+              {/* Confirm Password field */}
+              {mode === 'signup' && (
+                <div className="login-field">
+                  <label className="login-label">Confirm Password</label>
+                  <div className="login-input-wrapper">
+                    <IonIcon icon={lockClosedOutline} className="login-input-icon" />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="login-input"
+                      required
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      className="login-password-toggle"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      <IonIcon icon={showConfirmPassword ? eyeOffOutline : eyeOutline} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
-        <div className="login-links">
-          {mode !== 'signin' && (
-            <button type="button" onClick={() => switchMode('signin')} className="login-link-btn">
-              Already have an account? Sign in
-            </button>
-          )}
-          {mode !== 'signup' && (
-            <button type="button" onClick={() => switchMode('signup')} className="login-link-btn">
-              Need an account? Sign up
-            </button>
-          )}
-          {mode !== 'reset' && (
-            <button type="button" onClick={() => switchMode('reset')} className="login-link-btn">
-              Forgot password?
-            </button>
-          )}
+              {/* Forgot password link */}
+              {mode === 'signin' && (
+                <div className="login-forgot">
+                  <button
+                    type="button"
+                    className="login-link"
+                    onClick={() => switchMode('reset')}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+
+              {/* Submit button */}
+              <IonButton
+                expand="block"
+                type="submit"
+                disabled={submitting}
+                className="login-submit-btn"
+              >
+                {submitting && <IonSpinner name="crescent" />}
+                {mode === 'signin' && (submitting ? 'Signing in...' : 'Sign In')}
+                {mode === 'signup' && (submitting ? 'Creating account...' : 'Create Account')}
+                {mode === 'reset' && (submitting ? 'Sending...' : 'Send Reset Email')}
+              </IonButton>
+            </form>
+
+            {/* Mode switcher */}
+            <div className="login-footer">
+              {mode === 'signin' && (
+                <p>
+                  Don't have an account?{' '}
+                  <button type="button" className="login-link" onClick={() => switchMode('signup')}>
+                    Sign up
+                  </button>
+                </p>
+              )}
+              {mode === 'signup' && (
+                <p>
+                  Already have an account?{' '}
+                  <button type="button" className="login-link" onClick={() => switchMode('signin')}>
+                    Sign in
+                  </button>
+                </p>
+              )}
+              {mode === 'reset' && (
+                <p>
+                  Remember your password?{' '}
+                  <button type="button" className="login-link" onClick={() => switchMode('signin')}>
+                    Sign in
+                  </button>
+                </p>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </IonContent>
+    </IonApp>
   );
 }
-

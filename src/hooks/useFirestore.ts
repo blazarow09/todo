@@ -46,16 +46,24 @@ export function useFirestoreTodos(userId: string | undefined) {
 
   const addTodo = async (todo: Omit<Todo, 'id'>) => {
     if (!userId) return;
+    // Remove undefined values - Firestore doesn't accept them
+    const cleanedTodo = Object.fromEntries(
+      Object.entries(todo).filter(([_, value]) => value !== undefined)
+    );
     await addDoc(collection(db, 'users', userId, 'todos'), {
-      ...todo,
+      ...cleanedTodo,
       createdAt: serverTimestamp()
     });
   };
 
   const updateTodo = async (id: string, updates: Partial<Todo>) => {
     if (!userId) return;
+    // Remove undefined values - Firestore doesn't accept them
+    const cleanedUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, value]) => value !== undefined)
+    );
     const todoRef = doc(db, 'users', userId, 'todos', id);
-    await updateDoc(todoRef, updates);
+    await updateDoc(todoRef, cleanedUpdates);
   };
 
   const deleteTodo = async (id: string) => {

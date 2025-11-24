@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { Todo, Attachment } from '../types';
+import { openExternal } from '../utils/platform';
 import './TodoItem.css';
 
 type TodoItemProps = {
@@ -190,16 +191,12 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
     low: '#3b82f6'
   };
 
-  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
+  const handleLinkClick = async (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // Use Electron API if available, otherwise use window.open
-    if ((window as any).electronAPI?.openExternal) {
-      (window as any).electronAPI.openExternal(url);
-    } else {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
+    // Use platform abstraction for opening external URLs
+    await openExternal(url);
   };
 
   const parseTextWithLinks = (text: string, query?: string) => {

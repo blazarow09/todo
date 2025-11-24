@@ -1,4 +1,6 @@
 import { Todo } from '../types';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { isCapacitor, isElectron } from './platform';
 
 export function calculateNotificationTime(todo: Todo): number | null {
   if (!todo.dueDate || !todo.notificationEnabled || !todo.notificationType) {
@@ -51,28 +53,6 @@ export function calculateNotificationTime(todo: Todo): number | null {
 }
 
 export async function scheduleNotificationForTodo(todo: Todo): Promise<boolean> {
-  if (!window.electronAPI?.scheduleNotification) {
-    // Web fallback: Use browser Notification API
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const notificationTime = calculateNotificationTime(todo);
-      if (!notificationTime) return false;
-      
-      const now = Date.now();
-      const MIN_NOTIFICATION_DELAY = 5000;
-      if (notificationTime < now + MIN_NOTIFICATION_DELAY) return false;
-      
-      const delay = notificationTime - now;
-      setTimeout(() => {
-        new Notification('Task Reminder', {
-          body: todo.text.length > 100 ? todo.text.substring(0, 100) + '...' : todo.text,
-          icon: '/icon.png'
-        });
-      }, delay);
-      return true;
-    }
-    return false;
-  }
-
   const notificationTime = calculateNotificationTime(todo);
   
   if (!notificationTime) {
@@ -87,18 +67,58 @@ export async function scheduleNotificationForTodo(todo: Todo): Promise<boolean> 
     return false;
   }
 
-  const notificationId = `todo-${todo.id}`;
   const title = 'Task Reminder';
   const body = todo.text.length > 100 ? todo.text.substring(0, 100) + '...' : todo.text;
 
   try {
-    const result = await window.electronAPI.scheduleNotification(
-      notificationId,
-      title,
-      body,
-      notificationTime
-    );
-    return result.success;
+    // Electron
+    if (isElectron() && window.electronAPI?.scheduleNotification) {
+      const notificationId = `todo-${todo.id}`;
+      const result = await window.electronAPI.scheduleNotification(
+        notificationId,
+        title,
+        body,
+        notificationTime
+      );
+      return result.success;
+    }
+    
+    // Capacitor (Android/iOS)
+    if (isCapacitor()) {
+      // Request permission first
+      const permStatus = await LocalNotifications.requestPermissions();
+      if (permStatus.display !== 'granted') {
+        console.warn('Notification permission not granted');
+        return false;
+      }
+
+      await LocalNotifications.schedule({
+        notifications: [{
+          id: todo.id,
+          title: title,
+          body: body,
+          schedule: { at: new Date(notificationTime) },
+          sound: undefined,
+          smallIcon: 'ic_stat_icon',
+          iconColor: '#667eea'
+        }]
+      });
+      return true;
+    }
+
+    // Web fallback: Use browser Notification API
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const delay = notificationTime - now;
+      setTimeout(() => {
+        new Notification(title, {
+          body: body,
+          icon: '/icon.png'
+        });
+      }, delay);
+      return true;
+    }
+
+    return false;
   } catch (error) {
     console.error('Failed to schedule notification:', error);
     return false;
@@ -106,56 +126,102 @@ export async function scheduleNotificationForTodo(todo: Todo): Promise<boolean> 
 }
 
 export async function cancelNotificationForTodo(todoId: number): Promise<boolean> {
-  if (!window.electronAPI?.cancelNotification) {
-    return false;
-  }
-
-  const notificationId = `todo-${todoId}`;
-  
   try {
-    const result = await window.electronAPI.cancelNotification(notificationId);
-    return result.success;
+    // Electron
+    if (isElectron() && window.electronAPI?.cancelNotification) {
+      const notificationId = `todo-${todoId}`;
+      const result = await window.electronAPI.cancelNotification(notificationId);
+      return result.success;
+    }
+
+    // Capacitor
+    if (isCapacitor()) {
+      await LocalNotifications.cancel({ notifications: [{ id: todoId }] });
+      return true;
+    }
+
+    return false;
   } catch (error) {
     console.error('Failed to cancel notification:', error);
     return false;
   }
 }
 
+export async function cancelAllNotifications(): Promise<boolean> {
+  try {
+    // Electron
+    if (isElectron() && window.electronAPI?.cancelAllNotifications) {
+      await window.electronAPI.cancelAllNotifications();
+      return true;
+    }
+
+    // Capacitor
+    if (isCapacitor()) {
+      const pending = await LocalNotifications.getPending();
+      if (pending.notifications.length > 0) {
+        await LocalNotifications.cancel({ notifications: pending.notifications });
+      }
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Failed to cancel all notifications:', error);
+    return false;
+  }
+}
+
 export async function scheduleAllNotifications(todos: Todo[]): Promise<void> {
-  if (!window.electronAPI?.cancelAllNotifications) {
-    // Web fallback: Just schedule browser notifications
-    if ('Notification' in window) {
-      if (Notification.permission === 'default') {
-        await Notification.requestPermission();
+  // Electron
+  if (isElectron() && window.electronAPI?.cancelAllNotifications) {
+    // Cancel all existing notifications first
+    await window.electronAPI.cancelAllNotifications();
+
+    // Schedule notifications for all todos with notification settings
+    for (const todo of todos) {
+      if (todo.done || !todo.notificationEnabled || todo.isArchived || !todo.dueDate) {
+        continue;
       }
-      if (Notification.permission === 'granted') {
-        for (const todo of todos) {
-          if (todo.done || !todo.notificationEnabled || todo.isArchived || !todo.dueDate) {
-            continue;
-          }
-          await scheduleNotificationForTodo(todo);
-        }
-      }
+      await scheduleNotificationForTodo(todo);
     }
     return;
   }
 
-  // Cancel all existing notifications first
-  await window.electronAPI.cancelAllNotifications();
-
-  // Schedule notifications for all todos with notification settings
-  // Skip tasks that are done or don't have notifications enabled
-  for (const todo of todos) {
-    if (todo.done || !todo.notificationEnabled || todo.isArchived) {
-      continue;
+  // Capacitor
+  if (isCapacitor()) {
+    // Request permission
+    const permStatus = await LocalNotifications.requestPermissions();
+    if (permStatus.display !== 'granted') {
+      console.warn('Notification permission not granted');
+      return;
     }
 
-    // Only schedule if the task has a due date
-    if (!todo.dueDate) {
-      continue;
-    }
+    // Cancel all existing notifications first
+    await cancelAllNotifications();
 
-    await scheduleNotificationForTodo(todo);
+    // Schedule notifications for all todos
+    for (const todo of todos) {
+      if (todo.done || !todo.notificationEnabled || todo.isArchived || !todo.dueDate) {
+        continue;
+      }
+      await scheduleNotificationForTodo(todo);
+    }
+    return;
+  }
+
+  // Web fallback: Just schedule browser notifications
+  if ('Notification' in window) {
+    if (Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+    if (Notification.permission === 'granted') {
+      for (const todo of todos) {
+        if (todo.done || !todo.notificationEnabled || todo.isArchived || !todo.dueDate) {
+          continue;
+        }
+        await scheduleNotificationForTodo(todo);
+      }
+    }
   }
 }
 
@@ -243,6 +309,46 @@ function markOverdueTasksAsNotified(taskIds: number[]): void {
   saveNotifiedOverdueTasks(notified);
 }
 
+async function showImmediateNotification(title: string, body: string, id: string | number): Promise<void> {
+  try {
+    // Electron
+    if (isElectron() && window.electronAPI?.scheduleNotification) {
+      await window.electronAPI.scheduleNotification(
+        String(id),
+        title,
+        body,
+        Date.now() // Show immediately
+      );
+      return;
+    }
+
+    // Capacitor
+    if (isCapacitor()) {
+      const permStatus = await LocalNotifications.requestPermissions();
+      if (permStatus.display === 'granted') {
+        await LocalNotifications.schedule({
+          notifications: [{
+            id: typeof id === 'number' ? id : Math.abs(id.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0)),
+            title: title,
+            body: body,
+            schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
+            smallIcon: 'ic_stat_icon',
+            iconColor: '#667eea'
+          }]
+        });
+      }
+      return;
+    }
+
+    // Web fallback
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/icon.png' });
+    }
+  } catch (error) {
+    console.error('Failed to show immediate notification:', error);
+  }
+}
+
 export async function checkAndNotifyOverdueTasks(todos: Todo[]): Promise<void> {
   const overdueTasks = todos.filter(isOverdue);
   
@@ -265,43 +371,15 @@ export async function checkAndNotifyOverdueTasks(todos: Todo[]): Promise<void> {
     const title = 'Overdue Task';
     const body = task.text.length > 100 ? task.text.substring(0, 100) + '...' : task.text;
     
-    try {
-      if (window.electronAPI?.scheduleNotification) {
-        await window.electronAPI.scheduleNotification(
-          `overdue-${task.id}`,
-          title,
-          body,
-          Date.now() // Show immediately
-        );
-      } else if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, { body, icon: '/icon.png' });
-      }
-      // Mark as notified
-      markOverdueTasksAsNotified([task.id]);
-    } catch (error) {
-      console.error('Failed to show overdue task notification:', error);
-    }
+    await showImmediateNotification(title, body, `overdue-${task.id}`);
+    markOverdueTasksAsNotified([task.id]);
   } else {
     // Multiple overdue tasks - show summary
     const title = 'Overdue Tasks';
     const body = `You have ${newOverdueTasks.length} overdue task${newOverdueTasks.length > 1 ? 's' : ''}`;
     
-    try {
-      if (window.electronAPI?.scheduleNotification) {
-        await window.electronAPI.scheduleNotification(
-          'overdue-summary',
-          title,
-          body,
-          Date.now() // Show immediately
-        );
-      } else if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, { body, icon: '/icon.png' });
-      }
-      // Mark all as notified
-      markOverdueTasksAsNotified(newOverdueTasks.map(t => t.id));
-    } catch (error) {
-      console.error('Failed to show overdue tasks summary notification:', error);
-    }
+    await showImmediateNotification(title, body, 'overdue-summary');
+    markOverdueTasksAsNotified(newOverdueTasks.map(t => t.id));
   }
 }
 
@@ -322,4 +400,3 @@ export function clearAllOverdueNotificationTracking(): void {
     console.error('Failed to clear overdue notification tracking:', error);
   }
 }
-
