@@ -19,6 +19,7 @@ import FolderGroup from "./components/FolderGroup";
 // Firebase Imports
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Login from "./components/Login";
+import AuthCallback from "./components/AuthCallback";
 import { useFirestoreTodos, useFirestoreFolders } from "./hooks/useFirestore";
 import { useFirestoreUndoRedo } from "./hooks/useFirestoreUndoRedo";
 import { migrateLocalDataToFirebase } from "./utils/migration";
@@ -469,6 +470,16 @@ function AppContent() {
   
   const hasBackground = backgroundImage || backgroundColor;
 
+
+  // Check if we're on the auth callback route
+  const isAuthCallback = window.location.pathname === '/auth-callback' || 
+                         window.location.search.includes('auth-callback') ||
+                         window.location.hash.includes('auth-callback');
+
+  // Show callback page if on callback route
+  if (isAuthCallback) {
+    return <AuthCallback />;
+  }
 
   if (authLoading) return <div className="app-loading">Loading Auth...</div>;
   if (!user) return <Login />;

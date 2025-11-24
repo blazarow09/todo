@@ -45,5 +45,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   loadFolders: () => ipcRenderer.invoke("load-folders"),
   saveFolders: (folders) => ipcRenderer.invoke("save-folders", folders),
   migrateFromLocalStorage: (data) => ipcRenderer.invoke("migrate-from-localstorage", data),
+  // Protocol callback handler
+  onProtocolCallback: (callback) => {
+    ipcRenderer.on("protocol-callback", (event, url) => callback(url));
+  },
 });
 

@@ -903,17 +903,54 @@ app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
-// Ensure only one instance of the app is running
+// Register custom protocol handler for OAuth callback
+const PROTOCOL_NAME = 'mytodo';
+
+// Register the protocol (must be done before app is ready)
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(PROTOCOL_NAME, process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient(PROTOCOL_NAME);
+}
+
+// Handle protocol URL (Windows/Linux)
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
   // Another instance is already running, quit this one
   app.quit();
 } else {
-  // Handle when another instance tries to open
-  app.on("second-instance", () => {
-    // Someone tried to run a second instance, focus our window instead
-    if (mainWindow) {
+  // Handle protocol URL when app is already running
+  app.on("second-instance", (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance or opened a protocol URL
+    const url = commandLine.find(arg => arg.startsWith(`${PROTOCOL_NAME}://`));
+    if (url && mainWindow) {
+      // Send protocol URL to renderer
+      if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('protocol-callback', url);
+      }
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+      mainWindow.focus();
+    } else if (mainWindow) {
+      // Just focus the window
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  // Handle protocol URL on macOS (when app is not running)
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send('protocol-callback', url);
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
       }
@@ -923,6 +960,16 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(async () => {
+    // Handle protocol URL on Windows/Linux (when app starts via protocol)
+    if (process.platform === 'win32' || process.platform === 'linux') {
+      const url = process.argv.find(arg => arg.startsWith(`${PROTOCOL_NAME}://`));
+      if (url && mainWindow && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.once('did-finish-load', () => {
+          mainWindow.webContents.send('protocol-callback', url);
+        });
+      }
+    }
+
     // Create splash screen immediately when app is ready
     createSplashWindow();
     

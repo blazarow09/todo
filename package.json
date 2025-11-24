@@ -28,6 +28,7 @@
     "@iconify/react": "^6.0.2",
     "electron-updater": "^6.6.2",
     "firebase": "^12.6.0",
+    "firebase-admin": "^13.6.0",
     "fs-extra": "^11.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -94,6 +95,14 @@
       "owner": "blazarow09",
       "repo": "todo",
       "releaseType": "release"
-    }
+    },
+    "protocols": [
+      {
+        "name": "My Todo",
+        "schemes": [
+          "mytodo"
+        ]
+      }
+    ]
   }
 }
