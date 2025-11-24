@@ -89,9 +89,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      if (isElectron()) {
-        // In Electron, open browser for OAuth
-        const authUrl = `https://tasks.fragmentor.com/auth-callback`;
+    if (isElectron()) {
+      // In Electron, open browser for OAuth
+      const authUrl = `https://tasks.fragmentor.com/auth-callback?platform=electron`;
         // Open browser and let it handle the OAuth flow
         // The callback page will redirect back to mytodo:// protocol
         if (window.electronAPI?.openExternal) {
