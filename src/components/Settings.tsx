@@ -26,6 +26,7 @@ type SettingsProps = {
   onBackgroundColorChange: (color: string | null) => void;
   backgroundOverlayOpacity: number;
   onBackgroundOverlayOpacityChange: (opacity: number) => void;
+  onLogout?: () => void;
 };
 
 export default function Settings({
@@ -51,6 +52,7 @@ export default function Settings({
   onBackgroundColorChange,
   backgroundOverlayOpacity,
   onBackgroundOverlayOpacityChange,
+  onLogout,
 }: SettingsProps) {
   const [view, setView] = useState<'settings' | 'archived'>('settings');
   const [newFolderName, setNewFolderName] = useState('');

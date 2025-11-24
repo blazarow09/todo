@@ -32,7 +32,7 @@ const ALWAYS_ON_TOP_KEY = "todo_always_on_top";
 
 // Wrapper component to handle Auth
 function AppContent() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const [isMigrating, setIsMigrating] = useState(false);
   
   // Firestore hooks
@@ -634,6 +634,7 @@ function AppContent() {
                 order: folders.length
             });
         }}
+        onLogout={logout}
       />
 
        {/* FAB */}

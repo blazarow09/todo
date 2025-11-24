@@ -12,43 +12,22 @@ export default function AuthCallback() {
 
     const handleCallback = async () => {
       try {
-        // First, check if we're returning from a redirect
-        try {
-          const result = await getRedirectResult(auth);
-          if (result && result.user) {
-            // User just completed OAuth redirect
-            const idToken = await result.user.getIdToken();
-            if (mounted) {
-              window.location.href = `mytodo://auth?token=${encodeURIComponent(idToken)}`;
-            }
-            return;
-          }
-        } catch (redirectError: any) {
-          // If redirect result fails, check if user is already signed in
-          const currentUser = auth.currentUser;
-          if (currentUser) {
-            try {
-              const idToken = await currentUser.getIdToken();
-              if (mounted) {
-                window.location.href = `mytodo://auth?token=${encodeURIComponent(idToken)}`;
-              }
-              return;
-            } catch (tokenError) {
-              console.error('Failed to get ID token:', tokenError);
-            }
-          }
-          
-          // If no user, initiate redirect flow
+        // First, check if we're returning from a Google OAuth redirect
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          // User just completed OAuth redirect - get token and send to Electron
+          console.log('OAuth redirect completed, user:', result.user.email);
+          const idToken = await result.user.getIdToken();
           if (mounted) {
-            await signInWithRedirect(auth, googleProvider);
-            // User will be redirected to Google, then back here
-            return;
+            window.location.href = `mytodo://auth?token=${encodeURIComponent(idToken)}`;
           }
+          return;
         }
 
-        // Check if user is already signed in
+        // No redirect result - check if user is already signed in
         const currentUser = auth.currentUser;
         if (currentUser) {
+          console.log('User already signed in:', currentUser.email);
           try {
             const idToken = await currentUser.getIdToken();
             if (mounted) {
@@ -64,28 +43,26 @@ export default function AuthCallback() {
           }
         }
 
-        // Set up listener as fallback
-        unsubscribe = onAuthStateChanged(auth, async (user) => {
-          if (!mounted) return;
-          
-          if (user) {
-            try {
-              const idToken = await user.getIdToken();
-              window.location.href = `mytodo://auth?token=${encodeURIComponent(idToken)}`;
-            } catch (tokenError) {
-              console.error('Failed to get ID token:', tokenError);
-              window.location.href = `mytodo://auth?error=${encodeURIComponent('Failed to get token')}`;
-            }
+        // Not signed in - initiate OAuth redirect to Google immediately
+        // signInWithRedirect will redirect the entire page, so this is the last line that executes
+        console.log('No user found, initiating Google OAuth redirect...');
+        try {
+          // signInWithRedirect redirects immediately, so this line may not complete
+          await signInWithRedirect(auth, googleProvider);
+        } catch (redirectError: any) {
+          // If redirect fails (shouldn't happen normally), send error to Electron
+          console.error('Redirect error:', redirectError);
+          if (mounted) {
+            window.location.href = `mytodo://auth?error=${encodeURIComponent(redirectError.message || 'Redirect failed')}`;
           }
-        });
-
-        // Not signed in and no redirect result, initiate OAuth redirect
-        await signInWithRedirect(auth, googleProvider);
-        // User will be redirected to Google, then back here
+        }
       } catch (err: any) {
         if (!mounted) return;
         console.error('Callback error:', err);
-        window.location.href = `mytodo://auth?error=${encodeURIComponent(String(err))}`;
+        // If error is not about redirect, send to Electron
+        if (!err.code || err.code !== 'auth/popup-blocked') {
+          window.location.href = `mytodo://auth?error=${encodeURIComponent(err.message || String(err))}`;
+        }
       }
     };
 
