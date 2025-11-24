@@ -15,7 +15,6 @@ const markElectronFlow = () => {
     if (typeof window === 'undefined') return;
     try {
         window.sessionStorage.setItem(ELECTRON_FLOW_FLAG, '1');
-        window.sessionStorage.removeItem(ELECTRON_REDIRECT_FLAG);
     } catch (err) {
         console.warn('AuthCallback: Unable to persist electron auth flag', err);
     }
@@ -25,7 +24,6 @@ const clearElectronFlow = () => {
     if (typeof window === 'undefined') return;
     try {
         window.sessionStorage.removeItem(ELECTRON_FLOW_FLAG);
-        window.sessionStorage.removeItem(ELECTRON_REDIRECT_FLAG);
     } catch (err) {
         console.warn('AuthCallback: Unable to clear electron auth flag', err);
     }
