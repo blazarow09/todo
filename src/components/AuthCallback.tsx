@@ -76,7 +76,7 @@ export default function AuthCallback() {
     useEffect(() => {
         let mounted = true;
         let unsubscribe: (() => void) | null = null;
-        let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
+        let redirectTimeout: number | null = null;
 
         const handleCallback = async () => {
             try {
