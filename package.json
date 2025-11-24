@@ -92,6 +92,7 @@
       "warningsAsErrors": false
     },
     "linux": {
+      "maintainer": "blazarow <blazarow@users.noreply.github.com>",
       "target": [
         {
           "target": "deb",
