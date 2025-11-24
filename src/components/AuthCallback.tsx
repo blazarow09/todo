@@ -10,6 +10,7 @@ const isElectron = () => {
 
 const ELECTRON_FLOW_FLAG = 'electron-auth-flow';
 const ELECTRON_REDIRECT_FLAG = 'electron-auth-redirect-started';
+const REDIRECT_WAIT_MS = 8000;
 
 const markElectronFlow = () => {
     if (typeof window === 'undefined') return;
@@ -75,6 +76,7 @@ export default function AuthCallback() {
     useEffect(() => {
         let mounted = true;
         let unsubscribe: (() => void) | null = null;
+        let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
 
         const handleCallback = async () => {
             try {
@@ -97,6 +99,10 @@ export default function AuthCallback() {
                 }
 
                 if (result && result.user) {
+                    if (redirectTimeout) {
+                        clearTimeout(redirectTimeout);
+                        redirectTimeout = null;
+                    }
                     // User just completed OAuth redirect - get token and send to Electron
                     setStatus(`Successfully authenticated as ${result.user.email}`);
                     console.log('AuthCallback: OAuth redirect completed, user:', result.user.email);
@@ -132,6 +138,10 @@ export default function AuthCallback() {
                 // No redirect result - check if user is already signed in
                 const currentUser = auth.currentUser;
                 if (currentUser) {
+                    if (redirectTimeout) {
+                        clearTimeout(redirectTimeout);
+                        redirectTimeout = null;
+                    }
                     setStatus(`Already signed in as ${currentUser.email}`);
                     console.log('AuthCallback: User already signed in:', currentUser.email);
                     try {
@@ -163,6 +173,10 @@ export default function AuthCallback() {
                     if (!mounted) return;
 
                     if (user) {
+                        if (redirectTimeout) {
+                            clearTimeout(redirectTimeout);
+                            redirectTimeout = null;
+                        }
                         setStatus(`Authenticated as ${user.email}`);
                         console.log('AuthCallback: Auth state changed, user signed in:', user.email);
                         try {
@@ -194,6 +208,25 @@ export default function AuthCallback() {
                         // We've already kicked off the redirect once; wait for Firebase to finish
                         setStatus('Waiting for authentication to complete...');
                         console.log('AuthCallback: Redirect already started, waiting for Firebase to return redirect result...');
+                        if (!redirectTimeout) {
+                            redirectTimeout = window.setTimeout(async () => {
+                                if (!mounted || auth.currentUser) return;
+                                console.warn('AuthCallback: Redirect wait timed out, restarting sign-in redirect');
+                                clearRedirectState();
+                                try {
+                                    markRedirectStarted();
+                                    await signInWithRedirect(auth, googleProvider);
+                                } catch (redirectError: any) {
+                                    console.error('AuthCallback: Redirect retry error:', redirectError);
+                                    const errorMsg = `Redirect retry failed: ${redirectError.message}`;
+                                    setError(errorMsg);
+                                    if (shouldReturnToDesktop() && mounted) {
+                                        clearElectronFlow();
+                                        window.location.href = `mytodo://auth?error=${encodeURIComponent(errorMsg)}`;
+                                    }
+                                }
+                            }, REDIRECT_WAIT_MS);
+                        }
                     } else {
                         // No auth params and no user - initiate OAuth redirect to Google
                         setStatus('Redirecting to Google...');
@@ -245,6 +278,9 @@ export default function AuthCallback() {
             mounted = false;
             if (unsubscribe) {
                 unsubscribe();
+            }
+            if (redirectTimeout) {
+                clearTimeout(redirectTimeout);
             }
         };
     }, []);
