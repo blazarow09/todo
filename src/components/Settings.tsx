@@ -318,7 +318,7 @@ export default function Settings({
               </div>
 
               <div className="settings-version">
-                <span>Version {__APP_VERSION__}</span>
+                <span>Version {(globalThis as any).__APP_VERSION__ || '2.3.3'}</span>
               </div>
             </>
           ) : (

@@ -51,8 +51,25 @@ export function calculateNotificationTime(todo: Todo): number | null {
 }
 
 export async function scheduleNotificationForTodo(todo: Todo): Promise<boolean> {
-  if (!window.electronAPI) {
-    console.warn('Electron API not available');
+  if (!window.electronAPI?.scheduleNotification) {
+    // Web fallback: Use browser Notification API
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const notificationTime = calculateNotificationTime(todo);
+      if (!notificationTime) return false;
+      
+      const now = Date.now();
+      const MIN_NOTIFICATION_DELAY = 5000;
+      if (notificationTime < now + MIN_NOTIFICATION_DELAY) return false;
+      
+      const delay = notificationTime - now;
+      setTimeout(() => {
+        new Notification('Task Reminder', {
+          body: todo.text.length > 100 ? todo.text.substring(0, 100) + '...' : todo.text,
+          icon: '/icon.png'
+        });
+      }, delay);
+      return true;
+    }
     return false;
   }
 
@@ -89,7 +106,7 @@ export async function scheduleNotificationForTodo(todo: Todo): Promise<boolean> 
 }
 
 export async function cancelNotificationForTodo(todoId: number): Promise<boolean> {
-  if (!window.electronAPI) {
+  if (!window.electronAPI?.cancelNotification) {
     return false;
   }
 
@@ -105,7 +122,21 @@ export async function cancelNotificationForTodo(todoId: number): Promise<boolean
 }
 
 export async function scheduleAllNotifications(todos: Todo[]): Promise<void> {
-  if (!window.electronAPI) {
+  if (!window.electronAPI?.cancelAllNotifications) {
+    // Web fallback: Just schedule browser notifications
+    if ('Notification' in window) {
+      if (Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+      if (Notification.permission === 'granted') {
+        for (const todo of todos) {
+          if (todo.done || !todo.notificationEnabled || todo.isArchived || !todo.dueDate) {
+            continue;
+          }
+          await scheduleNotificationForTodo(todo);
+        }
+      }
+    }
     return;
   }
 
@@ -213,10 +244,6 @@ function markOverdueTasksAsNotified(taskIds: number[]): void {
 }
 
 export async function checkAndNotifyOverdueTasks(todos: Todo[]): Promise<void> {
-  if (!window.electronAPI) {
-    return;
-  }
-
   const overdueTasks = todos.filter(isOverdue);
   
   if (overdueTasks.length === 0) {
@@ -239,12 +266,16 @@ export async function checkAndNotifyOverdueTasks(todos: Todo[]): Promise<void> {
     const body = task.text.length > 100 ? task.text.substring(0, 100) + '...' : task.text;
     
     try {
-      await window.electronAPI.scheduleNotification(
-        `overdue-${task.id}`,
-        title,
-        body,
-        Date.now() // Show immediately
-      );
+      if (window.electronAPI?.scheduleNotification) {
+        await window.electronAPI.scheduleNotification(
+          `overdue-${task.id}`,
+          title,
+          body,
+          Date.now() // Show immediately
+        );
+      } else if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body, icon: '/icon.png' });
+      }
       // Mark as notified
       markOverdueTasksAsNotified([task.id]);
     } catch (error) {
@@ -256,12 +287,16 @@ export async function checkAndNotifyOverdueTasks(todos: Todo[]): Promise<void> {
     const body = `You have ${newOverdueTasks.length} overdue task${newOverdueTasks.length > 1 ? 's' : ''}`;
     
     try {
-      await window.electronAPI.scheduleNotification(
-        'overdue-summary',
-        title,
-        body,
-        Date.now() // Show immediately
-      );
+      if (window.electronAPI?.scheduleNotification) {
+        await window.electronAPI.scheduleNotification(
+          'overdue-summary',
+          title,
+          body,
+          Date.now() // Show immediately
+        );
+      } else if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body, icon: '/icon.png' });
+      }
       // Mark all as notified
       markOverdueTasksAsNotified(newOverdueTasks.map(t => t.id));
     } catch (error) {

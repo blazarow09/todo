@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import type { DropResult } from "@hello-pangea/dnd";
+import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from "@hello-pangea/dnd";
 import { Icon } from "@iconify/react";
 import "./App.css";
 import "./themes.css";
@@ -57,7 +56,7 @@ function AppContent() {
   // Migration effect
   useEffect(() => {
     const migrateData = async () => {
-      if (!user || !window.electronAPI) return;
+      if (!user || !window.electronAPI?.loadTodos || !window.electronAPI?.loadFolders) return;
       
       // Only migrate if Firestore is empty and we haven't migrated yet
       if (!todosLoading && !foldersLoading && todos.length === 0 && folders.length === 0) {
@@ -80,7 +79,6 @@ function AppContent() {
     
     migrateData();
   }, [user, todosLoading, foldersLoading, todos.length, folders.length]); // Only run when data is loaded
-
 
 
   // ... (Rest of state from original App) ...
@@ -193,7 +191,12 @@ function AppContent() {
 
     // Schedule notifications
   useEffect(() => {
-    if (window.electronAPI && todos.length > 0) {
+    if (window.electronAPI?.scheduleNotification && todos.length > 0) {
+      scheduleAllNotifications(todos).catch(err => {
+        console.error('Failed to schedule notifications:', err);
+      });
+    } else if ('Notification' in window && todos.length > 0) {
+      // Web fallback
       scheduleAllNotifications(todos).catch(err => {
         console.error('Failed to schedule notifications:', err);
       });
@@ -702,13 +705,13 @@ function AppContent() {
                  </div>
             ) : (
                  <Droppable droppableId="folders-list" type="FOLDER">
-                     {(provided, snapshot) => (
+                     {(provided: DroppableProvided, snapshot: { isDraggingOver: boolean }) => (
                          <div {...provided.droppableProps} ref={provided.innerRef} className="folders-droppable">
                              {sortedFolders.map((folder, index) => {
                                  const folderTodos = todosByFolder[folder.id] || [];
                                  return (
-                                     <Draggable key={folder.id} draggableId={`folder-${folder.id}`} index={index} type="FOLDER">
-                                         {(provided, snapshot) => (
+                                     <Draggable key={folder.id} draggableId={`folder-${folder.id}`} index={index}>
+                                         {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
                                              <div ref={provided.innerRef} {...provided.draggableProps} className="folder-draggable-wrapper">
                                                   <FolderGroup
                                                     folder={folder}
@@ -722,11 +725,11 @@ function AppContent() {
                                                         const filtered = filterTodos(todos);
                                                         return (
                                                             <Droppable droppableId={`folder-${folderId}`} type="TODO">
-                                                                {(provided) => (
+                                                                {(provided: DroppableProvided) => (
                                                                     <ul className="todo-list" {...provided.droppableProps} ref={provided.innerRef}>
                                                                         {filtered.map((todo, idx) => (
-                                                                            <Draggable key={todo.id} draggableId={String(todo.id)} index={idx} type="TODO">
-                                                                                {(provided) => (
+                                                                            <Draggable key={todo.id} draggableId={String(todo.id)} index={idx}>
+                                                                                {(provided: DraggableProvided) => (
                                                                                     <li ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}>
                                                                                         <TodoItem
                                                                                             todo={todo}

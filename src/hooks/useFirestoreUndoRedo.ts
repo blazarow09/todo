@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Todo } from '../types';
-import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 
 type ActionType = 'add' | 'delete' | 'update' | 'toggle';

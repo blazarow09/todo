@@ -33,7 +33,7 @@ export function useFirestoreTodos(userId: string | undefined) {
       const newTodos = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as Todo[];
+      })) as unknown as Todo[];
       setTodos(newTodos);
       setLoading(false);
     }, (error) => {
@@ -83,7 +83,7 @@ export function useFirestoreFolders(userId: string | undefined) {
       const newFolders = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as Folder[];
+      })) as unknown as Folder[];
       setFolders(newFolders);
       setLoading(false);
     }, (error) => {
@@ -112,4 +112,3 @@ export function useFirestoreFolders(userId: string | undefined) {
 
   return { folders, loading, addFolder, updateFolder, deleteFolder };
 }
-
