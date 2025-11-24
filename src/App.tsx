@@ -49,13 +49,22 @@ function AppContent() {
 
   const { trackAction, undo, redo, canUndo, canRedo } = useFirestoreUndoRedo(user?.uid);
 
-  // Migration effect
+  // Migration effect - only runs once per user
   useEffect(() => {
     const migrateData = async () => {
       if (!user || !window.electronAPI?.loadTodos || !window.electronAPI?.loadFolders) return;
 
-      // Only migrate if Firestore is empty and we haven't migrated yet
-      if (!todosLoading && !foldersLoading && todos.length === 0 && folders.length === 0) {
+      // Check if we've already migrated for this user
+      const migrationKey = `migration_completed_${user.uid}`;
+      if (localStorage.getItem(migrationKey)) {
+        return; // Already migrated, skip
+      }
+
+      // Wait for Firestore to finish loading
+      if (todosLoading || foldersLoading) return;
+
+      // Only migrate if Firestore is empty
+      if (todos.length === 0 && folders.length === 0) {
         setIsMigrating(true);
         try {
           const localTodos = await window.electronAPI.loadTodos();
@@ -65,16 +74,22 @@ function AppContent() {
             await migrateLocalDataToFirebase(localTodos || [], localFolders || [], user.uid);
             console.log("Migration completed");
           }
+          
+          // Mark migration as complete for this user (even if no data to migrate)
+          localStorage.setItem(migrationKey, 'true');
         } catch (error) {
           console.error("Migration failed", error);
         } finally {
           setIsMigrating(false);
         }
+      } else {
+        // Firestore already has data, mark as migrated to prevent future attempts
+        localStorage.setItem(migrationKey, 'true');
       }
     };
 
     migrateData();
-  }, [user, todosLoading, foldersLoading, todos.length, folders.length]); // Only run when data is loaded
+  }, [user, todosLoading, foldersLoading, todos.length, folders.length]);
 
 
   // ... (Rest of state from original App) ...
