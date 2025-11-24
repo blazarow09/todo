@@ -11,17 +11,7 @@ on:
 
 jobs:
   build-and-release:
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            platform: win
-            build-command: electron:publish
-          - os: ubuntu-latest
-            platform: linux
-            build-command: electron:publish:linux
-    
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     
     steps:
       - name: Checkout code
@@ -45,9 +35,9 @@ jobs:
           path: |
             **/electron-builder/Cache
             **/.cache/electron-builder
-          key: electron-builder-${{ matrix.os }}-${{ hashFiles('package.json', 'pnpm-lock.yaml') }}
+          key: electron-builder-windows-latest-${{ hashFiles('package.json', 'pnpm-lock.yaml') }}
           restore-keys: |
-            electron-builder-${{ matrix.os }}-
+            electron-builder-windows-latest-
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
@@ -55,21 +45,7 @@ jobs:
       - name: Build application
         run: pnpm run build
 
-      - name: Ensure Linux icon exists (Linux only)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          if [ ! -f "build/icon.png" ]; then
-            echo "Warning: build/icon.png not found. electron-builder will use a default icon."
-            echo "For best results, create a 512x512 PNG icon at build/icon.png"
-            # Create build directory if it doesn't exist
-            mkdir -p build
-            # electron-builder will handle missing icon gracefully
-          else
-            echo "Linux icon found at build/icon.png"
-          fi
-
-      - name: Pre-download electron-builder binaries (Windows only)
-        if: matrix.os == 'windows-latest'
+      - name: Pre-download electron-builder binaries
         run: |
           # Pre-download NSIS resources to avoid timeout during build
           $nsisUrl = "https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z"
@@ -107,6 +83,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder-cache
         timeout-minutes: 30
-        run: pnpm run ${{ matrix.build-command }}
+        run: pnpm run electron:publish
         continue-on-error: false
 
