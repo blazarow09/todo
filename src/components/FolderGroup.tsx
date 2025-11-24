@@ -61,8 +61,10 @@ export default function FolderGroup({
   };
 
   // todos prop is already filtered to this folder, so use it directly
-  const completedCount = todos.filter(t => t.done).length;
-  const totalCount = todos.length;
+  // Exclude archived tasks from counts
+  const activeTodos = todos.filter(t => !t.isArchived);
+  const completedCount = activeTodos.filter(t => t.done).length;
+  const totalCount = activeTodos.length;
 
   return (
     <div className="folder-group">

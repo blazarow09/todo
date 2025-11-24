@@ -2,6 +2,16 @@
   margin-bottom: 8px;
 }
 
+.folder-content {
+  padding: 0;
+  margin: 0;
+}
+
+.folder-content:has(.empty-state) {
+  padding: 0;
+  margin: 0;
+}
+
 .folder-draggable-wrapper {
   margin-bottom: 8px;
 }

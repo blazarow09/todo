@@ -8,7 +8,7 @@ import { Todo, FilterType, Theme, Folder, Attachment } from "./types";
 import { useUndoRedo } from "./hooks/useUndoRedo";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { exportTodos, importTodos } from "./utils/storage";
-import { scheduleAllNotifications } from "./utils/notifications";
+import { scheduleAllNotifications, checkAndNotifyOverdueTasks, clearOverdueNotificationTracking } from "./utils/notifications";
 import TodoItem from "./components/TodoItem";
 import FilterBar from "./components/FilterBar";
 import SearchBar from "./components/SearchBar";
@@ -267,6 +267,16 @@ export default function App() {
           }
           
           setIsDataLoaded(true);
+          
+          // Check for overdue tasks and show notifications after a short delay
+          if (window.electronAPI && migration.todos.length > 0) {
+            setTimeout(() => {
+              checkAndNotifyOverdueTasks(migration.todos).catch(err => {
+                console.error('Failed to check overdue tasks:', err);
+              });
+            }, 1500); // Small delay to ensure app is fully loaded
+          }
+          
           return;
         }
 
@@ -275,6 +285,10 @@ export default function App() {
           electronAPI.loadTodos(),
           electronAPI.loadFolders()
         ]);
+        
+        if (loadedFolders && loadedFolders.length > 0) {
+          console.log('Loaded folders from file:', loadedFolders.map(f => ({ id: f.id, name: f.name })));
+        }
 
         // Check if we need to migrate from localStorage
         const hasLocalStorageData = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(FOLDERS_KEY);
@@ -365,6 +379,15 @@ export default function App() {
               });
             }
           }
+          
+          // Check for overdue tasks and show notifications
+          if (electronAPI) {
+            setTimeout(() => {
+              checkAndNotifyOverdueTasks(finalTodos).catch(err => {
+                console.error('Failed to check overdue tasks:', err);
+              });
+            }, 1000); // Small delay to ensure app is fully loaded
+          }
 
           // Update other settings from migration
           if (themeToMigrate && (themeToMigrate === 'light' || themeToMigrate === 'dark')) {
@@ -418,6 +441,15 @@ export default function App() {
                 console.error('Failed to save migrated folders:', err);
               });
             }
+          }
+          
+          // Check for overdue tasks and show notifications after a short delay
+          if (electronAPI && todosToSet.length > 0) {
+            setTimeout(() => {
+              checkAndNotifyOverdueTasks(todosToSet).catch(err => {
+                console.error('Failed to check overdue tasks:', err);
+              });
+            }, 1500); // Small delay to ensure app is fully loaded
           }
         }
 
@@ -563,7 +595,8 @@ export default function App() {
   }, [searchQuery, todos, filter, selectedLabel]);
 
   const addTodo = useCallback((folderIdOverride?: string | null) => {
-    const folderToUse = folderIdOverride !== undefined ? folderIdOverride : selectedFolderId;
+    // If folderIdOverride is explicitly null, use null. Otherwise use selectedFolderId as fallback
+    const folderToUse = folderIdOverride !== undefined ? folderIdOverride : (folderIdOverride === null ? null : selectedFolderId);
     if (!input.trim()) return;
 
     if (editingTodo) {
@@ -620,16 +653,37 @@ export default function App() {
   }, [input, priority, label, dueDate, attachments, selectedFolderId, todos, addToHistory, editingTodo, notificationEnabled, notificationType, notificationDuration]);
 
   const updateTodo = useCallback((id: number, updates: Partial<Todo>) => {
+    const oldTodo = todos.find(t => t.id === id);
     const newTodos = todos.map(t => t.id === id ? { ...t, ...updates } : t);
     setTodos(newTodos);
     addToHistory(newTodos, 'update');
     setEditingId(null);
+    
+    // Clear overdue notification tracking if due date changed or task is completed
+    if (oldTodo) {
+      const updatedTodo = newTodos.find(t => t.id === id);
+      if (updatedTodo) {
+        // Clear tracking if due date changed or task is now completed
+        if (updates.dueDate !== undefined && updates.dueDate !== oldTodo.dueDate) {
+          clearOverdueNotificationTracking(id);
+        }
+        if (updates.done !== undefined && updates.done && !oldTodo.done) {
+          clearOverdueNotificationTracking(id);
+        }
+      }
+    }
   }, [todos, addToHistory]);
 
   const toggleTodo = useCallback((id: number) => {
+    const todo = todos.find(t => t.id === id);
     const newTodos = todos.map(t => t.id === id ? { ...t, done: !t.done } : t);
     setTodos(newTodos);
     addToHistory(newTodos, 'toggle');
+    
+    // Clear overdue notification tracking when task is completed
+    if (todo && !todo.done) {
+      clearOverdueNotificationTracking(id);
+    }
   }, [todos, addToHistory]);
 
   const archiveTodo = useCallback((id: number) => {
@@ -642,6 +696,9 @@ export default function App() {
     const newTodos = todos.filter(t => t.id !== id);
     setTodos(newTodos);
     addToHistory(newTodos, 'delete');
+    
+    // Clear overdue notification tracking when task is deleted
+    clearOverdueNotificationTracking(id);
   }, [todos, addToHistory]);
 
   const restoreTodo = useCallback((id: number) => {
@@ -1352,15 +1409,17 @@ export default function App() {
         </div>
       )}
 
-      <FilterBar
-        filter={filter}
-        labels={labels}
-        selectedLabel={selectedLabel}
-        onLabelChange={setSelectedLabel}
-        onFilterChange={setFilter}
-        onClearCompleted={clearCompleted}
-        hasCompleted={completedCount > 0}
-      />
+      {folders.length > 0 && (
+        <FilterBar
+          filter={filter}
+          labels={labels}
+          selectedLabel={selectedLabel}
+          onLabelChange={setSelectedLabel}
+          onFilterChange={setFilter}
+          onClearCompleted={clearCompleted}
+          hasCompleted={completedCount > 0}
+        />
+      )}
 
       {/* Settings Modal */}
       <Settings
@@ -1411,25 +1470,28 @@ export default function App() {
       />
 
       {/* Floating Action Button */}
-      <button
-        className="fab-add-todo"
-        onClick={() => {
-          setTargetFolderId(null);
-          setEditingTodo(null);
-          setInput("");
-          setLabel("");
-          setDueDate("");
-          setAttachments([]);
-          setPriority('medium');
-          setNotificationEnabled(false);
-          setNotificationType('before');
-          setNotificationDuration(15);
-          setShowTodoModal(true);
-        }}
-        title="Add new todo"
-      >
-        <Icon icon="mdi:plus" width="18" height="18" />
-      </button>
+      {folders.length > 0 && (
+        <button
+          className="fab-add-todo"
+          onClick={() => {
+            setTargetFolderId(null);
+            setSelectedFolderId(null); // Clear selected folder so no folder is pre-selected
+            setEditingTodo(null);
+            setInput("");
+            setLabel("");
+            setDueDate("");
+            setAttachments([]);
+            setPriority('medium');
+            setNotificationEnabled(false);
+            setNotificationType('before');
+            setNotificationDuration(15);
+            setShowTodoModal(true);
+          }}
+          title="Add new todo"
+        >
+          <Icon icon="mdi:plus" width="18" height="18" />
+        </button>
+      )}
 
       {/* Todo Creation/Edit Modal */}
       {showTodoModal && (
@@ -1652,14 +1714,34 @@ export default function App() {
         }}
       >
         <div className="folders-section">
-          <Droppable droppableId="folders-list" type="FOLDER" isDropDisabled={false}>
-            {(provided, snapshot) => (
-              <div 
-                {...provided.droppableProps} 
-                ref={provided.innerRef}
-                className={`folders-droppable ${snapshot.isDraggingOver ? 'drag-over' : ''}`}
-              >
-                {sortedFolders.map((folder, index) => {
+          {sortedFolders.length === 0 ? (
+            <div className="empty-folders-screen">
+              <div className="empty-folders-content">
+                <div className="empty-folders-icon">
+                  <Icon icon="mdi:folder-outline" width="64" height="64" />
+                </div>
+                <h2 className="empty-folders-title">No Folders Yet</h2>
+                <p className="empty-folders-description">
+                  Create your first folder to start organizing your tasks
+                </p>
+                <button
+                  className="empty-folders-create-btn"
+                  onClick={() => setShowFolderPopup(true)}
+                >
+                  <Icon icon="mdi:folder-plus" width="20" height="20" />
+                  <span>Create Your First Folder</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <Droppable droppableId="folders-list" type="FOLDER" isDropDisabled={false}>
+              {(provided, snapshot) => (
+                <div 
+                  {...provided.droppableProps} 
+                  ref={provided.innerRef}
+                  className={`folders-droppable ${snapshot.isDraggingOver ? 'drag-over' : ''}`}
+                >
+                  {sortedFolders.map((folder, index) => {
                   const folderTodos = todosByFolder[folder.id] || [];
                   // Ensure we're using the latest folder object from state
                   const currentFolder = folders.find(f => f.id === folder.id) || folder;
@@ -1792,10 +1874,11 @@ export default function App() {
                     </Draggable>
                   );
                 })}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          )}
         </div>
       </DragDropContext>
     </div>
