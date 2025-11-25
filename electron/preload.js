@@ -8,11 +8,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   hide: () => ipcRenderer.send("window-hide"),
   show: () => ipcRenderer.send("window-show"),
   exportData: (data) => ipcRenderer.invoke("export-data", data),
-  importData: (callback) => {
-    ipcRenderer.invoke("import-data").then((data) => {
-      if (data) callback(data);
-    });
-  },
+  importData: () => ipcRenderer.invoke("import-data"),
   getAlwaysOnTop: () => ipcRenderer.invoke("get-always-on-top"),
   setAlwaysOnTop: (value) => ipcRenderer.invoke("set-always-on-top", value),
   getLaunchAtStartup: () => ipcRenderer.invoke("get-launch-at-startup"),

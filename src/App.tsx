@@ -21,6 +21,20 @@ import Login from "./components/Login";
 import { useFirestoreTodos, useFirestoreFolders } from "./hooks/useFirestore";
 import { useFirestoreUndoRedo } from "./hooks/useFirestoreUndoRedo";
 import { migrateLocalDataToFirebase } from "./utils/migration";
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from './firebase';
+
+// Helper function to remove undefined values from an object
+// Firestore doesn't accept undefined values
+function removeUndefinedFields<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const result: Partial<T> = {};
+  for (const key of Object.keys(obj) as Array<keyof T>) {
+    if (obj[key] !== undefined) {
+      result[key] = obj[key];
+    }
+  }
+  return result;
+}
 
 const THEME_KEY = "todo_theme";
 const SELECTED_FOLDER_KEY = "todo_selected_folder";
@@ -232,16 +246,17 @@ function AppContent() {
         priority,
         label: label.trim(),
         folderId: folderToUse,
-        dueDate: dueDate || undefined,
-        attachments: attachments.length > 0 ? attachments : undefined,
-        notificationEnabled: notificationEnabled || undefined,
-        notificationType: notificationEnabled ? notificationType : undefined,
-        notificationDuration: notificationEnabled && notificationType !== 'at' ? notificationDuration : undefined,
+        ...(dueDate && { dueDate }),
+        ...(attachments.length > 0 && { attachments }),
+        ...(notificationEnabled && { notificationEnabled }),
+        ...(notificationEnabled && notificationType && { notificationType }),
+        ...(notificationEnabled && notificationType !== 'at' && notificationDuration && { notificationDuration }),
       };
+      const cleanedUpdates = removeUndefinedFields(updates);
 
       // Optimistic update handled by listener, but we track action for undo
       trackAction('update', 'todos', String(editingTodo.id), editingTodo); // Track previous state
-      await firestoreUpdateTodo(String(editingTodo.id), updates);
+      await firestoreUpdateTodo(String(editingTodo.id), cleanedUpdates);
       setEditingTodo(null);
     } else {
       // Create
@@ -251,13 +266,14 @@ function AppContent() {
         priority,
         label: label.trim(),
         folderId: folderToUse,
-        dueDate: dueDate || undefined,
-        attachments: attachments.length > 0 ? attachments : undefined,
-        notificationEnabled: notificationEnabled || undefined,
-        notificationType: notificationEnabled ? notificationType : undefined,
-        notificationDuration: notificationEnabled && notificationType !== 'at' ? notificationDuration : undefined,
+        ...(dueDate && { dueDate }),
+        ...(attachments.length > 0 && { attachments }),
+        ...(notificationEnabled && { notificationEnabled }),
+        ...(notificationEnabled && notificationType && { notificationType }),
+        ...(notificationEnabled && notificationType !== 'at' && notificationDuration && { notificationDuration }),
       };
-      await firestoreAddTodo(newTodoData as any);
+      const cleanedData = removeUndefinedFields(newTodoData);
+      await firestoreAddTodo(cleanedData as any);
       // We can't easily track 'add' undo here without the generated ID, 
       // but useFirestoreUndoRedo could wrap addDoc to handle this.
       // For now, let's assume simple add tracking isn't implemented or done inside the hook if refactored.
@@ -325,6 +341,222 @@ function AppContent() {
     });
   }, [todos, archiveTodo]);
 
+  // --- Export/Import Handlers ---
+  const handleExport = useCallback(async () => {
+    try {
+      const exportData = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        todos: todos.map(todo => {
+          const { id, ...todoData } = todo;
+          return {
+            ...todoData,
+            id: String(id) // Convert to string for JSON compatibility
+          };
+        }),
+        folders: folders.map(folder => {
+          const { id, ...folderData } = folder;
+          return {
+            ...folderData,
+            id: String(id) // Convert to string for JSON compatibility
+          };
+        })
+      };
+
+      const jsonString = JSON.stringify(exportData, null, 2);
+
+      if (window.electronAPI?.exportData) {
+        // Electron environment
+        const result = await window.electronAPI.exportData(jsonString);
+        if (result.canceled) {
+          return; // User canceled the dialog
+        }
+        if (!result.success) {
+          alert(`Export failed: ${result.error || 'Unknown error'}`);
+          return;
+        }
+        alert('Data exported successfully!');
+      } else {
+        // Web fallback - download file
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `todos-export-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        alert('Data exported successfully!');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, [todos, folders]);
+
+  const handleImport = useCallback(async () => {
+    try {
+      let jsonString: string | null = null;
+
+      if (window.electronAPI?.importData) {
+        // Electron environment
+        jsonString = await window.electronAPI.importData();
+        if (!jsonString) {
+          return; // User canceled the dialog or file read failed
+        }
+      } else {
+        // Web fallback - file input
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+        input.onchange = async (e) => {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const content = e.target?.result as string;
+            await processImport(content);
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+        return; // Early return for web fallback
+      }
+
+      if (jsonString) {
+        await processImport(jsonString);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      alert(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    async function processImport(jsonString: string) {
+      if (!user?.uid) {
+        alert('You must be logged in to import data');
+        return;
+      }
+
+      let importData: { todos?: any[]; folders?: any[]; version?: string };
+      try {
+        importData = JSON.parse(jsonString);
+      } catch (error) {
+        alert('Invalid JSON file');
+        return;
+      }
+
+      if (!importData.todos && !importData.folders) {
+        alert('Invalid file format: missing todos or folders');
+        return;
+      }
+
+      // Confirm import
+      const confirmMessage = `This will import ${importData.todos?.length || 0} todos and ${importData.folders?.length || 0} folders. Existing data will not be deleted. Continue?`;
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+
+      try {
+        // Import folders first to create folder ID mapping
+        const folderIdMap: Record<string, string> = {};
+        if (importData.folders && Array.isArray(importData.folders)) {
+          for (const folder of importData.folders) {
+            const { id: oldId, ...folderData } = folder;
+            // Use addDoc directly to get the new document ID
+            const docRef = await addDoc(collection(db, 'users', user.uid, 'folders'), {
+              name: folderData.name || 'Imported Folder',
+              collapsed: folderData.collapsed ?? false,
+              order: folderData.order ?? folders.length
+            });
+            if (oldId) {
+              folderIdMap[String(oldId)] = docRef.id;
+            }
+          }
+        }
+
+        // Import todos with folder ID mapping
+        let importedTodosCount = 0;
+        let failedTodosCount = 0;
+        const failedTodos: string[] = [];
+        
+        if (importData.todos && Array.isArray(importData.todos)) {
+          for (const todo of importData.todos) {
+            try {
+              // Skip if todo doesn't have required fields
+              if (!todo || typeof todo !== 'object') {
+                failedTodosCount++;
+                failedTodos.push('Invalid todo object');
+                console.error('Invalid todo object:', todo);
+                continue;
+              }
+
+              const { id, folderId, ...todoData } = todo;
+              
+              // Ensure text field exists
+              if (!todoData.text && todoData.text !== '') {
+                failedTodosCount++;
+                failedTodos.push(`Todo missing text field (id: ${id || 'unknown'})`);
+                console.error('Todo missing text field:', todo);
+                continue;
+              }
+              
+              // Map folder ID if it exists
+              let newFolderId: string | null | undefined = undefined;
+              if (folderId !== undefined) {
+                newFolderId = folderId ? (folderIdMap[String(folderId)] || null) : null;
+              }
+
+              const todoToAdd = {
+                text: String(todoData.text || ''),
+                done: Boolean(todoData.done ?? false),
+                priority: (todoData.priority === 'low' || todoData.priority === 'medium' || todoData.priority === 'high') ? todoData.priority : 'medium',
+                label: String(todoData.label || ''),
+                ...(newFolderId !== undefined && { folderId: newFolderId }),
+                ...(todoData.dueDate && { dueDate: String(todoData.dueDate) }),
+                ...(todoData.notes && { notes: String(todoData.notes) }),
+                ...(todoData.attachments && Array.isArray(todoData.attachments) && { attachments: todoData.attachments }),
+                isArchived: Boolean(todoData.isArchived ?? false),
+                createdAt: todoData.createdAt ? (typeof todoData.createdAt === 'number' ? todoData.createdAt : new Date(todoData.createdAt).getTime()) : Date.now(),
+                ...(todoData.notificationEnabled !== undefined && { notificationEnabled: Boolean(todoData.notificationEnabled) }),
+                ...(todoData.notificationType && (todoData.notificationType === 'before' || todoData.notificationType === 'after' || todoData.notificationType === 'at') && { notificationType: todoData.notificationType }),
+                ...(todoData.notificationDuration !== undefined && typeof todoData.notificationDuration === 'number' && { notificationDuration: todoData.notificationDuration })
+              };
+              const cleanedTodo = removeUndefinedFields(todoToAdd);
+              
+              // Ensure createdAt is always present
+              if (!cleanedTodo.createdAt) {
+                cleanedTodo.createdAt = Date.now();
+              }
+              
+              await addDoc(collection(db, 'users', user.uid, 'todos'), cleanedTodo);
+              importedTodosCount++;
+            } catch (error) {
+              failedTodosCount++;
+              const todoText = (todo.text || todo.id || 'Unknown todo').toString();
+              failedTodos.push(todoText);
+              console.error(`Failed to import todo:`, todo, error);
+            }
+          }
+        }
+
+        let importedFoldersCount = 0;
+        if (importData.folders && Array.isArray(importData.folders)) {
+          importedFoldersCount = importData.folders.length;
+        }
+
+        if (failedTodosCount > 0) {
+          alert(`Import completed with errors:\n- Successfully imported: ${importedTodosCount} todos, ${importedFoldersCount} folders\n- Failed: ${failedTodosCount} todos\n\nFailed todos: ${failedTodos.slice(0, 5).join(', ')}${failedTodos.length > 5 ? '...' : ''}`);
+        } else {
+          alert(`Successfully imported ${importedTodosCount} todos and ${importedFoldersCount} folders!`);
+        }
+      } catch (error) {
+        console.error('Import processing error:', error);
+        alert(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+  }, [user, folders]);
 
   // --- Folder Handlers ---
 
@@ -728,8 +960,8 @@ function AppContent() {
         }}
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
-        onExport={() => { }} // Export needs refactor
-        onImport={() => { }} // Import needs refactor
+        onExport={handleExport}
+        onImport={handleImport}
         folders={folders}
         onCreateFolder={(name) => {
           firestoreAddFolder({
