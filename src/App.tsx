@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from "@hello-pangea/dnd";
 import { Icon } from "@iconify/react";
 import "./App.css";
@@ -161,6 +161,8 @@ function AppContent() {
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
   const [pendingFirebaseOps, setPendingFirebaseOps] = useState(0);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle paste events when modal is open
   useEffect(() => {
@@ -227,6 +229,36 @@ function AppContent() {
       }
     };
   }, []);
+
+  // Manage loading indicator with minimum display time to prevent flashing
+  useEffect(() => {
+    const isLoading = pendingFirebaseOps > 0 || isCheckingUpdates || todosLoading || foldersLoading || isMigrating;
+    
+    if (isLoading) {
+      // Show immediately when loading starts
+      setShowLoadingIndicator(true);
+      // Clear any pending hide timeout
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    } else {
+      // Hide after minimum display time (500ms) to prevent flashing
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      loadingTimeoutRef.current = setTimeout(() => {
+        setShowLoadingIndicator(false);
+        loadingTimeoutRef.current = null;
+      }, 500);
+    }
+
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
+  }, [pendingFirebaseOps, isCheckingUpdates, todosLoading, foldersLoading, isMigrating]);
 
   // --- Effects (Settings) ---
 
@@ -1094,16 +1126,14 @@ function AppContent() {
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
         </div>
         <div className="titlebar-actions">
-          {(pendingFirebaseOps > 0 || isCheckingUpdates || todosLoading || foldersLoading || isMigrating) && (
-            <div className="loading-indicator" title={
-              isCheckingUpdates ? "Checking for updates..." :
-              isMigrating ? "Migrating data..." :
-              todosLoading || foldersLoading ? "Loading data..." :
-              "Syncing..."
-            }>
-              <div className="spinner"></div>
-            </div>
-          )}
+          <div className={`loading-indicator ${showLoadingIndicator ? 'visible' : 'hidden'}`} title={
+            isCheckingUpdates ? "Checking for updates..." :
+            isMigrating ? "Migrating data..." :
+            todosLoading || foldersLoading ? "Loading data..." :
+            "Syncing..."
+          }>
+            <div className="spinner"></div>
+          </div>
           <button className="settings-toggle" onClick={() => setShowSettings(true)}>
             <Icon icon="mdi:cog" width="20" height="20" />
           </button>
