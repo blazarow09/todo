@@ -10,6 +10,7 @@ export type Todo = {
   attachments?: Attachment[];
   isArchived?: boolean;
   createdAt: number;
+  order?: number; // Order within folder for drag-and-drop
   notificationEnabled?: boolean;
   notificationType?: 'before' | 'after' | 'at';
   notificationDuration?: number; // in minutes

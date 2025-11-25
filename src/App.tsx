@@ -219,18 +219,23 @@ function AppContent() {
     }
   }, [selectedFolderId]);
 
-  // Schedule notifications
+  // Schedule notifications with debounce to avoid rescheduling on every change
   useEffect(() => {
-    if (window.electronAPI?.scheduleNotification && todos.length > 0) {
-      scheduleAllNotifications(todos).catch(err => {
-        console.error('Failed to schedule notifications:', err);
-      });
-    } else if ('Notification' in window && todos.length > 0) {
-      // Web fallback
-      scheduleAllNotifications(todos).catch(err => {
-        console.error('Failed to schedule notifications:', err);
-      });
-    }
+    // Debounce notification scheduling to avoid rescheduling on rapid changes
+    const timeoutId = setTimeout(() => {
+      if (window.electronAPI?.scheduleNotification && todos.length > 0) {
+        scheduleAllNotifications(todos).catch(err => {
+          console.error('Failed to schedule notifications:', err);
+        });
+      } else if ('Notification' in window && todos.length > 0) {
+        // Web fallback
+        scheduleAllNotifications(todos).catch(err => {
+          console.error('Failed to schedule notifications:', err);
+        });
+      }
+    }, 500); // Wait 500ms after todos change before rescheduling
+
+    return () => clearTimeout(timeoutId);
   }, [todos]);
 
   // --- Handlers (Adapted for Firestore) ---
@@ -260,12 +265,20 @@ function AppContent() {
       setEditingTodo(null);
     } else {
       // Create
+      // Calculate order: get max order in folder + 1, or 0 if folder is empty
+      const folderTodos = folderToUse ? todos.filter(t => t.folderId === folderToUse && !t.isArchived) : [];
+      const maxOrder = folderTodos.length > 0
+        ? Math.max(...folderTodos.map(t => t.order !== undefined ? t.order : -1), -1)
+        : -1;
+      const newOrder = maxOrder + 1;
+
       const newTodoData = {
         text: input.trim(),
         done: false,
         priority,
         label: label.trim(),
         folderId: folderToUse,
+        order: newOrder,
         ...(dueDate && { dueDate }),
         ...(attachments.length > 0 && { attachments }),
         ...(notificationEnabled && { notificationEnabled }),
@@ -480,7 +493,7 @@ function AppContent() {
         let importedTodosCount = 0;
         let failedTodosCount = 0;
         const failedTodos: string[] = [];
-        
+
         if (importData.todos && Array.isArray(importData.todos)) {
           for (const todo of importData.todos) {
             try {
@@ -493,7 +506,7 @@ function AppContent() {
               }
 
               const { id, folderId, ...todoData } = todo;
-              
+
               // Ensure text field exists
               if (!todoData.text && todoData.text !== '') {
                 failedTodosCount++;
@@ -501,7 +514,7 @@ function AppContent() {
                 console.error('Todo missing text field:', todo);
                 continue;
               }
-              
+
               // Map folder ID if it exists
               let newFolderId: string | null | undefined = undefined;
               if (folderId !== undefined) {
@@ -524,12 +537,12 @@ function AppContent() {
                 ...(todoData.notificationDuration !== undefined && typeof todoData.notificationDuration === 'number' && { notificationDuration: todoData.notificationDuration })
               };
               const cleanedTodo = removeUndefinedFields(todoToAdd);
-              
+
               // Ensure createdAt is always present
               if (!cleanedTodo.createdAt) {
                 cleanedTodo.createdAt = Date.now();
               }
-              
+
               await addDoc(collection(db, 'users', user.uid, 'todos'), cleanedTodo);
               importedTodosCount++;
             } catch (error) {
@@ -758,22 +771,49 @@ function AppContent() {
 
     // Todo drag
     if (result.type === 'TODO') {
-      // Logic for todo move
-      // We need to handle folder change and order change
-      // Since we don't have an 'order' field on todos in schema yet (implied by createdAt),
-      // we might just handle folder change.
-      // If you want reordering within folder, we need 'order' field on todos.
-      // For now, just handle folder change:
       const sourceDroppableId = result.source.droppableId;
       const destDroppableId = result.destination.droppableId;
+      const sourceIndex = result.source.index;
+      const destIndex = result.destination.index;
 
+      // Handle reordering within the same folder
+      if (sourceDroppableId === destDroppableId && sourceDroppableId.startsWith('folder-')) {
+        const folderId = sourceDroppableId.replace('folder-', '');
+        const folderTodos = todos.filter(t => t.folderId === folderId && !t.isArchived);
+
+        // Sort by order (if exists) or createdAt
+        const sorted = [...folderTodos].sort((a, b) => {
+          const orderA = a.order !== undefined ? a.order : (a.createdAt || 0);
+          const orderB = b.order !== undefined ? b.order : (b.createdAt || 0);
+          return orderA - orderB;
+        });
+
+        if (sourceIndex === destIndex) return;
+
+        // Reorder the array
+        const [moved] = sorted.splice(sourceIndex, 1);
+        sorted.splice(destIndex, 0, moved);
+
+        // Update order for all affected todos (assign sequential order)
+        // We update all because the order values need to be sequential (0, 1, 2, ...)
+        sorted.forEach((todo, index) => {
+          firestoreUpdateTodo(String(todo.id), { order: index });
+        });
+        return;
+      }
+
+      // Handle moving between folders
       if (sourceDroppableId !== destDroppableId && destDroppableId.startsWith('folder-')) {
         const folderId = destDroppableId.replace('folder-', '');
+        const folderTodos = todos.filter(t => t.folderId === folderId && !t.isArchived);
+        const newOrder = folderTodos.length; // Place at end of destination folder
         moveTodoToFolder(parseInt(result.draggableId), folderId);
+        // Also set order when moving to new folder
+        firestoreUpdateTodo(String(result.draggableId), { order: newOrder });
       }
     }
 
-  }, [folders, firestoreUpdateFolder, moveTodoToFolder]);
+  }, [folders, todos, firestoreUpdateFolder, firestoreUpdateTodo, moveTodoToFolder]);
 
   // Shortcuts
   useKeyboardShortcuts({
@@ -800,6 +840,15 @@ function AppContent() {
     }
     return acc;
   }, {} as Record<string, Todo[]>);
+
+  // Sort todos within each folder by order field (or createdAt as fallback)
+  Object.keys(todosByFolder).forEach(folderId => {
+    todosByFolder[folderId].sort((a, b) => {
+      const orderA = a.order !== undefined ? a.order : (a.createdAt || 0);
+      const orderB = b.order !== undefined ? b.order : (b.createdAt || 0);
+      return orderA - orderB;
+    });
+  });
 
   const filterTodos = (todoList: Todo[]) => {
     return todoList.filter(todo => {

@@ -81,10 +81,44 @@ export async function scheduleNotificationForTodo(todo: Todo): Promise<boolean> 
 
   const now = Date.now();
   const MIN_NOTIFICATION_DELAY = 5000; // Minimum 5 seconds delay to prevent immediate notifications
+  // Maximum delay for setTimeout is 2^31-1 milliseconds (about 24.8 days)
+  const MAX_SETTIMEOUT_DELAY = 2147483647;
 
   // Don't schedule notifications in the past or too soon (within 5 seconds)
+  // Also check if the due date itself has already passed
   if (notificationTime < now + MIN_NOTIFICATION_DELAY) {
+    console.log(`Skipping notification for todo ${todo.id}: notification time ${new Date(notificationTime).toISOString()} is too soon (now: ${new Date(now).toISOString()})`);
     return false;
+  }
+
+  // Don't schedule if delay exceeds setTimeout maximum (would overflow and fire immediately)
+  const delay = notificationTime - now;
+  if (delay > MAX_SETTIMEOUT_DELAY) {
+    console.log(`Skipping notification for todo ${todo.id}: delay too long (${delay}ms, max: ${MAX_SETTIMEOUT_DELAY}ms). Notification time ${new Date(notificationTime).toISOString()} is more than 24.8 days away`);
+    return false;
+  }
+
+  // Additional check: if the due date has already passed, don't schedule notification
+  if (todo.dueDate) {
+    const [datePart, timePart] = todo.dueDate.split('T');
+    const [yearStr, monthStr, dayStr] = datePart.split('-');
+    let hour = 0;
+    let minute = 0;
+    if (timePart) {
+      const [hourStr, minuteStr] = timePart.split(':');
+      hour = parseInt(hourStr, 10) || 0;
+      minute = parseInt(minuteStr, 10) || 0;
+    }
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10) - 1;
+    const day = parseInt(dayStr, 10);
+    const dueDate = new Date(year, month, day, hour, minute, 0, 0);
+    const dueTimestamp = dueDate.getTime();
+    
+    // If the due date has already passed, don't schedule notification
+    if (!isNaN(dueTimestamp) && dueTimestamp < now) {
+      return false;
+    }
   }
 
   const notificationId = `todo-${todo.id}`;
@@ -144,14 +178,39 @@ export async function scheduleAllNotifications(todos: Todo[]): Promise<void> {
   await window.electronAPI.cancelAllNotifications();
 
   // Schedule notifications for all todos with notification settings
-  // Skip tasks that are done or don't have notifications enabled
+  // Skip tasks that are done, archived, or don't have notifications enabled
   for (const todo of todos) {
+    // Skip if done, archived, or notifications not enabled
     if (todo.done || !todo.notificationEnabled || todo.isArchived) {
       continue;
     }
 
     // Only schedule if the task has a due date
     if (!todo.dueDate) {
+      continue;
+    }
+
+    // Additional validation: ensure notification time is valid and in the future
+    const notificationTime = calculateNotificationTime(todo);
+    if (!notificationTime) {
+      continue;
+    }
+
+    const now = Date.now();
+    const MIN_NOTIFICATION_DELAY = 5000; // Minimum 5 seconds delay
+    // Maximum delay for setTimeout is 2^31-1 milliseconds (about 24.8 days)
+    const MAX_SETTIMEOUT_DELAY = 2147483647;
+    
+    // Skip if notification time is in the past or too soon (within 5 seconds)
+    if (notificationTime < now + MIN_NOTIFICATION_DELAY) {
+      console.log(`Skipping notification for todo ${todo.id} in scheduleAllNotifications: notification time ${new Date(notificationTime).toISOString()} is too soon`);
+      continue;
+    }
+
+    // Skip if delay exceeds setTimeout maximum (would overflow and fire immediately)
+    const delay = notificationTime - now;
+    if (delay > MAX_SETTIMEOUT_DELAY) {
+      console.log(`Skipping notification for todo ${todo.id} in scheduleAllNotifications: delay too long (${delay}ms, max: ${MAX_SETTIMEOUT_DELAY}ms). Notification time ${new Date(notificationTime).toISOString()} is more than 24.8 days away`);
       continue;
     }
 

@@ -757,11 +757,23 @@ ipcMain.handle("schedule-notification", (event, { id, title, body, timestamp }) 
 
     const now = Date.now();
     const delay = timestamp - now;
+    const MIN_NOTIFICATION_DELAY = 5000; // Minimum 5 seconds delay
+    // Maximum delay for setTimeout is 2^31-1 milliseconds (about 24.8 days)
+    const MAX_SETTIMEOUT_DELAY = 2147483647;
 
-    if (delay <= 0) {
-      // Show immediately if time has passed
-      showNotification(title, body);
-      return { success: true };
+    // Don't schedule if time has passed or is too soon (within 5 seconds)
+    // This prevents immediate notifications when rescheduling
+    if (delay < MIN_NOTIFICATION_DELAY) {
+      console.log(`Skipping notification ${id}: delay too short (${delay}ms). Scheduled for ${new Date(timestamp).toISOString()}, now is ${new Date(now).toISOString()}`);
+      return { success: false, error: "Notification time is in the past or too soon" };
+    }
+
+    // Don't schedule if delay exceeds setTimeout maximum (would overflow and fire immediately)
+    if (delay > MAX_SETTIMEOUT_DELAY) {
+      console.log(`Skipping notification ${id}: delay too long (${delay}ms, max: ${MAX_SETTIMEOUT_DELAY}ms). Scheduled for ${new Date(timestamp).toISOString()}, now is ${new Date(now).toISOString()}`);
+      // For notifications too far in the future, we'll need to reschedule them later
+      // For now, just skip them - they'll be rescheduled when the app restarts or todos are reloaded
+      return { success: false, error: "Notification time is too far in the future" };
     }
 
     // Schedule notification
@@ -771,6 +783,7 @@ ipcMain.handle("schedule-notification", (event, { id, title, body, timestamp }) 
     }, delay);
 
     scheduledNotifications.set(id, timeoutId);
+    console.log(`Scheduled notification ${id} for ${new Date(timestamp).toISOString()} (delay: ${delay}ms)`);
     return { success: true };
   } catch (error) {
     console.error("Failed to schedule notification:", error);
