@@ -110,6 +110,54 @@ function AppContent() {
     migrateData();
   }, [user, todosLoading, foldersLoading, todos.length, folders.length]);
 
+  // Handle paste events when modal is open
+  useEffect(() => {
+    if (!showTodoModal) return;
+
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            imageFiles.push(file);
+          }
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        imageFiles.forEach((file) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const dataUrl = event.target?.result as string;
+            if (dataUrl) {
+              const newAttachment: Attachment = {
+                id: String(Date.now() + Math.random()),
+                type: 'image',
+                url: dataUrl,
+                name: file.name || 'Pasted image'
+              };
+              setAttachments(prev => [...prev, newAttachment]);
+            }
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+    };
+
+    document.addEventListener('paste', handleGlobalPaste);
+    return () => {
+      document.removeEventListener('paste', handleGlobalPaste);
+    };
+  }, [showTodoModal]);
+
 
   // ... (Rest of state from original App) ...
   const [input, setInput] = useState("");
@@ -689,6 +737,45 @@ function AppContent() {
     });
   }, []);
 
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    if (!showTodoModal) return;
+
+    const items = e.clipboardData.items;
+    const imageFiles: File[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      imageFiles.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const dataUrl = event.target?.result as string;
+          if (dataUrl) {
+            const newAttachment: Attachment = {
+              id: String(Date.now() + Math.random()),
+              type: 'image',
+              url: dataUrl,
+              name: file.name || 'Pasted image'
+            };
+            setAttachments(prev => [...prev, newAttachment]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  }, [showTodoModal]);
+
   const handleModalDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1087,7 +1174,7 @@ function AppContent() {
               <h3>{editingTodo ? 'Edit Todo' : 'Create New Todo'}</h3>
               <button className="todo-modal-close" onClick={handleCloseModal}>×</button>
             </div>
-            <div className="todo-modal-content">
+            <div className="todo-modal-content" onPaste={handlePaste}>
               <div className="input-row">
                 <textarea
                   className="input input-textarea"
