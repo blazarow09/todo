@@ -618,11 +618,12 @@ function AppContent() {
     setFolderToDelete(null);
   }, [folderToDelete, todos, firestoreDeleteFolder, firestoreDeleteTodo]);
 
-  const moveTodoToFolder = useCallback(async (todoId: number, folderId: string | null) => {
-    const todo = todos.find(t => t.id === todoId);
+  const moveTodoToFolder = useCallback(async (todoId: number | string, folderId: string | null) => {
+    const todoIdStr = String(todoId);
+    const todo = todos.find(t => String(t.id) === todoIdStr);
     if (todo) {
-      trackAction('update', 'todos', String(todoId), todo);
-      await firestoreUpdateTodo(String(todoId), { folderId });
+      trackAction('update', 'todos', todoIdStr, todo);
+      await firestoreUpdateTodo(todoIdStr, { folderId });
     }
   }, [todos, firestoreUpdateTodo, trackAction]);
 
@@ -779,7 +780,18 @@ function AppContent() {
       // Handle reordering within the same folder
       if (sourceDroppableId === destDroppableId && sourceDroppableId.startsWith('folder-')) {
         const folderId = sourceDroppableId.replace('folder-', '');
-        const folderTodos = todos.filter(t => t.folderId === folderId && !t.isArchived);
+
+        // Get folder todos with the same filtering as the UI
+        let folderTodos = todos.filter(t => t.folderId === folderId && !t.isArchived);
+
+        // Apply the same filters as filterTodos to match the displayed order
+        folderTodos = folderTodos.filter(todo => {
+          if (filter === 'active' && todo.done) return false;
+          if (filter === 'completed' && !todo.done) return false;
+          if (selectedLabel && todo.label !== selectedLabel) return false;
+          if (searchQuery && !todo.text.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+          return true;
+        });
 
         // Sort by order (if exists) or createdAt
         const sorted = [...folderTodos].sort((a, b) => {
@@ -804,16 +816,40 @@ function AppContent() {
 
       // Handle moving between folders
       if (sourceDroppableId !== destDroppableId && destDroppableId.startsWith('folder-')) {
-        const folderId = destDroppableId.replace('folder-', '');
-        const folderTodos = todos.filter(t => t.folderId === folderId && !t.isArchived);
-        const newOrder = folderTodos.length; // Place at end of destination folder
-        moveTodoToFolder(parseInt(result.draggableId), folderId);
-        // Also set order when moving to new folder
-        firestoreUpdateTodo(String(result.draggableId), { order: newOrder });
+        const destFolderId = destDroppableId.replace('folder-', '');
+        const destIndex = result.destination.index;
+
+        // Get destination folder todos with the same filtering as the UI
+        let destFolderTodos = todos.filter(t => t.folderId === destFolderId && !t.isArchived);
+        destFolderTodos = destFolderTodos.filter(todo => {
+          if (filter === 'active' && todo.done) return false;
+          if (filter === 'completed' && !todo.done) return false;
+          if (selectedLabel && todo.label !== selectedLabel) return false;
+          if (searchQuery && !todo.text.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+          return true;
+        });
+
+        // Sort by order
+        destFolderTodos.sort((a, b) => {
+          const orderA = a.order !== undefined ? a.order : (a.createdAt || 0);
+          const orderB = b.order !== undefined ? b.order : (b.createdAt || 0);
+          return orderA - orderB;
+        });
+
+        // Insert at the drop position (we only need the id for order update)
+        destFolderTodos.splice(destIndex, 0, { id: result.draggableId } as unknown as Todo);
+
+        // Update folder and order for the moved todo
+        moveTodoToFolder(result.draggableId, destFolderId);
+
+        // Update order for all todos in destination folder
+        destFolderTodos.forEach((todo, index) => {
+          firestoreUpdateTodo(String(todo.id), { order: index });
+        });
       }
     }
 
-  }, [folders, todos, firestoreUpdateFolder, firestoreUpdateTodo, moveTodoToFolder]);
+  }, [folders, todos, filter, selectedLabel, searchQuery, firestoreUpdateFolder, firestoreUpdateTodo, moveTodoToFolder]);
 
   // Shortcuts
   useKeyboardShortcuts({

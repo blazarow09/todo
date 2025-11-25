@@ -9,7 +9,7 @@ type FolderGroupProps = {
   onToggleCollapse: (folderId: string) => void;
   onRenameFolder: (folderId: string, newName: string) => void;
   onDeleteFolder: (folderId: string, folderName: string) => void;
-  onMoveTodoToFolder: (todoId: number, folderId: string | null) => void;
+  onMoveTodoToFolder: (todoId: number | string, folderId: string | null) => void;
   dragHandleProps?: any;
   renderTodos: (todos: Todo[], folderId: string) => JSX.Element;
 };
