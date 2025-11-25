@@ -35,6 +35,7 @@ declare global {
       saveFile?: (data: string, filename: string) => Promise<{ success: boolean; error?: string }>;
       openFile?: (callback: (data: string) => void) => void;
       migrateFromLocalStorage?: (data: any) => Promise<{ success: boolean; error?: string }>;
+      clearLocalData?: () => Promise<{ success: boolean; error?: string }>;
     };
   }
 }

@@ -45,5 +45,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   loadFolders: () => ipcRenderer.invoke("load-folders"),
   saveFolders: (folders) => ipcRenderer.invoke("save-folders", folders),
   migrateFromLocalStorage: (data) => ipcRenderer.invoke("migrate-from-localstorage", data),
+  clearLocalData: () => ipcRenderer.invoke("clear-local-data"),
 });
 

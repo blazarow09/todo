@@ -898,6 +898,31 @@ ipcMain.handle("migrate-from-localstorage", async (event, { todos, folders, them
   }
 });
 
+// Clear local data files after successful Firebase migration
+ipcMain.handle("clear-local-data", async () => {
+  try {
+    const todosPath = getTodosPath();
+    const foldersPath = getFoldersPath();
+    
+    // Delete todos.json if it exists
+    if (fs.existsSync(todosPath)) {
+      fs.unlinkSync(todosPath);
+      console.log('Cleared local todos.json');
+    }
+    
+    // Delete folders.json if it exists
+    if (fs.existsSync(foldersPath)) {
+      fs.unlinkSync(foldersPath);
+      console.log('Cleared local folders.json');
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to clear local data:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Performance optimizations
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');

@@ -54,37 +54,41 @@ function AppContent() {
     const migrateData = async () => {
       if (!user || !window.electronAPI?.loadTodos || !window.electronAPI?.loadFolders) return;
 
-      // Check if we've already migrated for this user
-      const migrationKey = `migration_completed_${user.uid}`;
-      if (localStorage.getItem(migrationKey)) {
-        return; // Already migrated, skip
-      }
-
       // Wait for Firestore to finish loading
       if (todosLoading || foldersLoading) return;
 
-      // Only migrate if Firestore is empty
+      // Load local data to check if there's anything to migrate
+      const localTodos = await window.electronAPI.loadTodos();
+      const localFolders = await window.electronAPI.loadFolders();
+
+      // If no local data exists, nothing to migrate
+      if ((!localTodos || localTodos.length === 0) && (!localFolders || localFolders.length === 0)) {
+        return;
+      }
+
+      // Only migrate if Firestore is empty (to avoid duplicates)
       if (todos.length === 0 && folders.length === 0) {
         setIsMigrating(true);
         try {
-          const localTodos = await window.electronAPI.loadTodos();
-          const localFolders = await window.electronAPI.loadFolders();
+          await migrateLocalDataToFirebase(localTodos || [], localFolders || [], user.uid);
+          console.log("Migration completed");
 
-          if ((localTodos && localTodos.length > 0) || (localFolders && localFolders.length > 0)) {
-            await migrateLocalDataToFirebase(localTodos || [], localFolders || [], user.uid);
-            console.log("Migration completed");
+          // Clear local JSON files after successful migration to prevent future duplicates
+          if (window.electronAPI.clearLocalData) {
+            await window.electronAPI.clearLocalData();
+            console.log("Local data files cleared");
           }
-          
-          // Mark migration as complete for this user (even if no data to migrate)
-          localStorage.setItem(migrationKey, 'true');
         } catch (error) {
           console.error("Migration failed", error);
         } finally {
           setIsMigrating(false);
         }
       } else {
-        // Firestore already has data, mark as migrated to prevent future attempts
-        localStorage.setItem(migrationKey, 'true');
+        // Firestore already has data, clear local files to prevent future migration attempts
+        if (window.electronAPI.clearLocalData) {
+          await window.electronAPI.clearLocalData();
+          console.log("Local data files cleared (Firestore already has data)");
+        }
       }
     };
 
