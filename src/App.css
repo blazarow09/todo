@@ -790,6 +790,7 @@ body {
 .titlebar-actions {
     display: flex;
     align-items: center;
+    gap: 8px;
     -webkit-app-region: no-drag;
     flex-shrink: 0;
     height: 48px;
@@ -797,6 +798,30 @@ body {
     z-index: 20;
     order: -1;
     padding-left: 8px;
+}
+
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    -webkit-app-region: no-drag;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .clear-completed-header-btn {

@@ -159,6 +159,8 @@ function AppContent() {
   const [showTodoModal, setShowTodoModal] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
+  const [pendingFirebaseOps, setPendingFirebaseOps] = useState(0);
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
 
   // Handle paste events when modal is open
   useEffect(() => {
@@ -208,6 +210,23 @@ function AppContent() {
     };
   }, [showTodoModal]);
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
+
+  // Listen for update status events
+  useEffect(() => {
+    if (!(window as any).electronAPI?.onUpdateStatus) return;
+
+    const handleUpdateStatus = (status: { checking?: boolean; available?: boolean; downloaded?: boolean; error?: string | null }) => {
+      setIsCheckingUpdates(status.checking === true);
+    };
+
+    (window as any).electronAPI.onUpdateStatus(handleUpdateStatus);
+
+    return () => {
+      if ((window as any).electronAPI?.removeUpdateListeners) {
+        (window as any).electronAPI.removeUpdateListeners();
+      }
+    };
+  }, []);
 
   // --- Effects (Settings) ---
 
@@ -292,105 +311,135 @@ function AppContent() {
     const folderToUse = folderIdOverride !== undefined ? folderIdOverride : (folderIdOverride === null ? null : selectedFolderId);
     if (!input.trim()) return;
 
-    if (editingTodo) {
-      // Update
-      const updates = {
-        text: input.trim(),
-        priority,
-        label: label.trim(),
-        folderId: folderToUse,
-        ...(dueDate && { dueDate }),
-        ...(attachments.length > 0 && { attachments }),
-        ...(notificationEnabled && { notificationEnabled }),
-        ...(notificationEnabled && notificationType && { notificationType }),
-        ...(notificationEnabled && notificationType !== 'at' && notificationDuration && { notificationDuration }),
-      };
-      const cleanedUpdates = removeUndefinedFields(updates);
+    setPendingFirebaseOps(prev => prev + 1);
+    try {
+      if (editingTodo) {
+        // Update
+        const updates = {
+          text: input.trim(),
+          priority,
+          label: label.trim(),
+          folderId: folderToUse,
+          ...(dueDate && { dueDate }),
+          ...(attachments.length > 0 && { attachments }),
+          ...(notificationEnabled && { notificationEnabled }),
+          ...(notificationEnabled && notificationType && { notificationType }),
+          ...(notificationEnabled && notificationType !== 'at' && notificationDuration && { notificationDuration }),
+        };
+        const cleanedUpdates = removeUndefinedFields(updates);
 
-      // Optimistic update handled by listener, but we track action for undo
-      trackAction('update', 'todos', String(editingTodo.id), editingTodo); // Track previous state
-      await firestoreUpdateTodo(String(editingTodo.id), cleanedUpdates);
-      setEditingTodo(null);
-    } else {
-      // Create
-      // Calculate order: get max order in folder + 1, or 0 if folder is empty
-      const folderTodos = folderToUse ? todos.filter(t => t.folderId === folderToUse && !t.isArchived) : [];
-      const maxOrder = folderTodos.length > 0
-        ? Math.max(...folderTodos.map(t => t.order !== undefined ? t.order : -1), -1)
-        : -1;
-      const newOrder = maxOrder + 1;
+        // Optimistic update handled by listener, but we track action for undo
+        trackAction('update', 'todos', String(editingTodo.id), editingTodo); // Track previous state
+        await firestoreUpdateTodo(String(editingTodo.id), cleanedUpdates);
+        setEditingTodo(null);
+      } else {
+        // Create
+        // Calculate order: get max order in folder + 1, or 0 if folder is empty
+        const folderTodos = folderToUse ? todos.filter(t => t.folderId === folderToUse && !t.isArchived) : [];
+        const maxOrder = folderTodos.length > 0
+          ? Math.max(...folderTodos.map(t => t.order !== undefined ? t.order : -1), -1)
+          : -1;
+        const newOrder = maxOrder + 1;
 
-      const newTodoData = {
-        text: input.trim(),
-        done: false,
-        priority,
-        label: label.trim(),
-        folderId: folderToUse,
-        order: newOrder,
-        ...(dueDate && { dueDate }),
-        ...(attachments.length > 0 && { attachments }),
-        ...(notificationEnabled && { notificationEnabled }),
-        ...(notificationEnabled && notificationType && { notificationType }),
-        ...(notificationEnabled && notificationType !== 'at' && notificationDuration && { notificationDuration }),
-      };
-      const cleanedData = removeUndefinedFields(newTodoData);
-      await firestoreAddTodo(cleanedData as any);
-      // We can't easily track 'add' undo here without the generated ID, 
-      // but useFirestoreUndoRedo could wrap addDoc to handle this.
-      // For now, let's assume simple add tracking isn't implemented or done inside the hook if refactored.
-      // Actually, let's skip tracking 'add' in this component side for now to keep it simple, 
-      // or we need the ID returned from firestoreAddTodo.
+        const newTodoData = {
+          text: input.trim(),
+          done: false,
+          priority,
+          label: label.trim(),
+          folderId: folderToUse,
+          order: newOrder,
+          ...(dueDate && { dueDate }),
+          ...(attachments.length > 0 && { attachments }),
+          ...(notificationEnabled && { notificationEnabled }),
+          ...(notificationEnabled && notificationType && { notificationType }),
+          ...(notificationEnabled && notificationType !== 'at' && notificationDuration && { notificationDuration }),
+        };
+        const cleanedData = removeUndefinedFields(newTodoData);
+        await firestoreAddTodo(cleanedData as any);
+        // We can't easily track 'add' undo here without the generated ID, 
+        // but useFirestoreUndoRedo could wrap addDoc to handle this.
+        // For now, let's assume simple add tracking isn't implemented or done inside the hook if refactored.
+        // Actually, let's skip tracking 'add' in this component side for now to keep it simple, 
+        // or we need the ID returned from firestoreAddTodo.
+      }
+
+      // Reset form
+      setInput("");
+      setLabel("");
+      setDueDate("");
+      setAttachments([]);
+      setPriority('medium');
+      setNotificationEnabled(false);
+      setShowTodoModal(false);
+      setTargetFolderId(null);
+    } finally {
+      setPendingFirebaseOps(prev => Math.max(0, prev - 1));
     }
-
-    // Reset form
-    setInput("");
-    setLabel("");
-    setDueDate("");
-    setAttachments([]);
-    setPriority('medium');
-    setNotificationEnabled(false);
-    setShowTodoModal(false);
-    setTargetFolderId(null);
-  }, [input, priority, label, dueDate, attachments, selectedFolderId, editingTodo, notificationEnabled, notificationType, notificationDuration, firestoreAddTodo, firestoreUpdateTodo, trackAction]);
+  }, [input, priority, label, dueDate, attachments, selectedFolderId, editingTodo, notificationEnabled, notificationType, notificationDuration, firestoreAddTodo, firestoreUpdateTodo, trackAction, todos]);
 
   const updateTodo = useCallback(async (id: number, updates: Partial<Todo>) => {
-    // Find previous state for undo
-    const oldTodo = todos.find(t => t.id === id);
-    if (oldTodo) {
-      trackAction('update', 'todos', String(id), oldTodo);
+    setPendingFirebaseOps(prev => prev + 1);
+    try {
+      // Find previous state for undo
+      const oldTodo = todos.find(t => t.id === id);
+      if (oldTodo) {
+        trackAction('update', 'todos', String(id), oldTodo);
+      }
+      await firestoreUpdateTodo(String(id), updates);
+    } finally {
+      setPendingFirebaseOps(prev => Math.max(0, prev - 1));
     }
-    await firestoreUpdateTodo(String(id), updates);
   }, [todos, firestoreUpdateTodo, trackAction]);
 
   const toggleTodo = useCallback(async (id: number) => {
-    const todo = todos.find(t => t.id === id);
-    if (todo) {
-      trackAction('toggle', 'todos', String(id), todo);
-      await firestoreUpdateTodo(String(id), { done: !todo.done });
+    setPendingFirebaseOps(prev => prev + 1);
+    try {
+      const todo = todos.find(t => t.id === id);
+      if (todo) {
+        trackAction('toggle', 'todos', String(id), todo);
+        await firestoreUpdateTodo(String(id), { done: !todo.done });
+      }
+    } finally {
+      setPendingFirebaseOps(prev => Math.max(0, prev - 1));
     }
   }, [todos, firestoreUpdateTodo, trackAction]);
 
   const archiveTodo = useCallback(async (id: number) => {
-    const todo = todos.find(t => t.id === id);
-    if (todo) {
-      trackAction('update', 'todos', String(id), todo);
-      await firestoreUpdateTodo(String(id), { isArchived: true });
+    setPendingFirebaseOps(prev => prev + 1);
+    try {
+      const todo = todos.find(t => t.id === id);
+      if (todo) {
+        trackAction('update', 'todos', String(id), todo);
+        await firestoreUpdateTodo(String(id), { isArchived: true });
+      }
+    } finally {
+      setPendingFirebaseOps(prev => Math.max(0, prev - 1));
     }
   }, [todos, firestoreUpdateTodo, trackAction]);
 
   const deleteTodo = useCallback(async (id: number) => {
-    const todo = todos.find(t => t.id === id);
-    if (todo) {
-      trackAction('delete', 'todos', String(id), todo);
-      await firestoreDeleteTodo(String(id));
+    setPendingFirebaseOps(prev => prev + 1);
+    try {
+      const todo = todos.find(t => t.id === id);
+      if (todo) {
+        trackAction('delete', 'todos', String(id), todo);
+        await firestoreDeleteTodo(String(id));
+      }
+    } finally {
+      setPendingFirebaseOps(prev => Math.max(0, prev - 1));
     }
   }, [todos, firestoreDeleteTodo, trackAction]);
 
   const restoreTodo = useCallback(async (id: number) => {
-    const todo = todos.find(t => t.id === id);
-    if (todo) {
-      trackAction('update', 'todos', String(id), todo);
-      await firestoreUpdateTodo(String(id), { isArchived: false });
+    setPendingFirebaseOps(prev => prev + 1);
+    try {
+      const todo = todos.find(t => t.id === id);
+      if (todo) {
+        trackAction('update', 'todos', String(id), todo);
+        await firestoreUpdateTodo(String(id), { isArchived: false });
+      }
+    } finally {
+      setPendingFirebaseOps(prev => Math.max(0, prev - 1));
     }
   }, [todos, firestoreUpdateTodo, trackAction]);
 
@@ -623,19 +672,29 @@ function AppContent() {
 
   const createFolder = useCallback(async () => {
     if (!newFolderName.trim()) return;
-    await firestoreAddFolder({
-      name: newFolderName.trim(),
-      collapsed: false,
-      order: folders.length
-    });
-    setNewFolderName("");
-    setShowFolderPopup(false);
+    setPendingFirebaseOps(prev => prev + 1);
+    try {
+      await firestoreAddFolder({
+        name: newFolderName.trim(),
+        collapsed: false,
+        order: folders.length
+      });
+      setNewFolderName("");
+      setShowFolderPopup(false);
+    } finally {
+      setPendingFirebaseOps(prev => Math.max(0, prev - 1));
+    }
   }, [newFolderName, folders.length, firestoreAddFolder]);
 
   const toggleFolderCollapse = useCallback(async (folderId: string) => {
     const folder = folders.find(f => f.id === folderId);
     if (folder) {
-      await firestoreUpdateFolder(folderId, { collapsed: !folder.collapsed });
+      setPendingFirebaseOps(prev => prev + 1);
+      try {
+        await firestoreUpdateFolder(folderId, { collapsed: !folder.collapsed });
+      } finally {
+        setPendingFirebaseOps(prev => Math.max(0, prev - 1));
+      }
     }
   }, [folders, firestoreUpdateFolder]);
 
@@ -643,8 +702,13 @@ function AppContent() {
     if (!newName || !newName.trim()) return;
     const folder = folders.find(f => f.id === folderId);
     if (folder) {
-      trackAction('update', 'folders', folderId, folder);
-      await firestoreUpdateFolder(folderId, { name: newName.trim() });
+      setPendingFirebaseOps(prev => prev + 1);
+      try {
+        trackAction('update', 'folders', folderId, folder);
+        await firestoreUpdateFolder(folderId, { name: newName.trim() });
+      } finally {
+        setPendingFirebaseOps(prev => Math.max(0, prev - 1));
+      }
     }
   }, [folders, firestoreUpdateFolder, trackAction]);
 
@@ -655,23 +719,33 @@ function AppContent() {
   const confirmDeleteFolder = useCallback(async () => {
     if (!folderToDelete) return;
 
-    // Delete folder
-    // Optional: Delete todos in folder or move them?
-    // For now, just delete folder document. Todos with this folderId will be orphaned or hidden
-    // Ideally, we should batch delete todos in this folder
-    const folderTodos = todos.filter(t => t.folderId === folderToDelete.id);
-    folderTodos.forEach(t => firestoreDeleteTodo(String(t.id)));
+    setPendingFirebaseOps(prev => prev + 1);
+    try {
+      // Delete folder
+      // Optional: Delete todos in folder or move them?
+      // For now, just delete folder document. Todos with this folderId will be orphaned or hidden
+      // Ideally, we should batch delete todos in this folder
+      const folderTodos = todos.filter(t => t.folderId === folderToDelete.id);
+      folderTodos.forEach(t => firestoreDeleteTodo(String(t.id)));
 
-    await firestoreDeleteFolder(folderToDelete.id);
-    setFolderToDelete(null);
+      await firestoreDeleteFolder(folderToDelete.id);
+      setFolderToDelete(null);
+    } finally {
+      setPendingFirebaseOps(prev => Math.max(0, prev - 1));
+    }
   }, [folderToDelete, todos, firestoreDeleteFolder, firestoreDeleteTodo]);
 
   const moveTodoToFolder = useCallback(async (todoId: number | string, folderId: string | null) => {
     const todoIdStr = String(todoId);
     const todo = todos.find(t => String(t.id) === todoIdStr);
     if (todo) {
-      trackAction('update', 'todos', todoIdStr, todo);
-      await firestoreUpdateTodo(todoIdStr, { folderId });
+      setPendingFirebaseOps(prev => prev + 1);
+      try {
+        trackAction('update', 'todos', todoIdStr, todo);
+        await firestoreUpdateTodo(todoIdStr, { folderId });
+      } finally {
+        setPendingFirebaseOps(prev => Math.max(0, prev - 1));
+      }
     }
   }, [todos, firestoreUpdateTodo, trackAction]);
 
@@ -851,7 +925,10 @@ function AppContent() {
       // Update all orders
       sorted.forEach((f, index) => {
         if (f.order !== index) {
-          firestoreUpdateFolder(f.id, { order: index });
+          setPendingFirebaseOps(prev => prev + 1);
+          firestoreUpdateFolder(f.id, { order: index }).finally(() => {
+            setPendingFirebaseOps(prev => Math.max(0, prev - 1));
+          });
         }
       });
       return;
@@ -896,7 +973,10 @@ function AppContent() {
         // Update order for all affected todos (assign sequential order)
         // We update all because the order values need to be sequential (0, 1, 2, ...)
         sorted.forEach((todo, index) => {
-          firestoreUpdateTodo(String(todo.id), { order: index });
+          setPendingFirebaseOps(prev => prev + 1);
+          firestoreUpdateTodo(String(todo.id), { order: index }).finally(() => {
+            setPendingFirebaseOps(prev => Math.max(0, prev - 1));
+          });
         });
         return;
       }
@@ -931,7 +1011,10 @@ function AppContent() {
 
         // Update order for all todos in destination folder
         destFolderTodos.forEach((todo, index) => {
-          firestoreUpdateTodo(String(todo.id), { order: index });
+          setPendingFirebaseOps(prev => prev + 1);
+          firestoreUpdateTodo(String(todo.id), { order: index }).finally(() => {
+            setPendingFirebaseOps(prev => Math.max(0, prev - 1));
+          });
         });
       }
     }
@@ -1011,6 +1094,16 @@ function AppContent() {
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
         </div>
         <div className="titlebar-actions">
+          {(pendingFirebaseOps > 0 || isCheckingUpdates || todosLoading || foldersLoading || isMigrating) && (
+            <div className="loading-indicator" title={
+              isCheckingUpdates ? "Checking for updates..." :
+              isMigrating ? "Migrating data..." :
+              todosLoading || foldersLoading ? "Loading data..." :
+              "Syncing..."
+            }>
+              <div className="spinner"></div>
+            </div>
+          )}
           <button className="settings-toggle" onClick={() => setShowSettings(true)}>
             <Icon icon="mdi:cog" width="20" height="20" />
           </button>
@@ -1136,10 +1229,13 @@ function AppContent() {
         onImport={handleImport}
         folders={folders}
         onCreateFolder={(name) => {
+          setPendingFirebaseOps(prev => prev + 1);
           firestoreAddFolder({
             name: name,
             collapsed: false,
             order: folders.length
+          }).finally(() => {
+            setPendingFirebaseOps(prev => Math.max(0, prev - 1));
           });
         }}
         onLogout={logout}
