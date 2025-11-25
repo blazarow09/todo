@@ -130,11 +130,13 @@ export default function DatePicker({
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
+    // Convert to Monday-based week (Sunday=0 becomes 6, Monday=1 becomes 0, etc.)
+    const startingDayMondayBased = (startingDayOfWeek + 6) % 7;
 
     const days: (number | null)[] = [];
 
     // Add empty cells for days before the first day of the month
-    for (let i = 0; i < startingDayOfWeek; i++) {
+    for (let i = 0; i < startingDayMondayBased; i++) {
       days.push(null);
     }
 
@@ -291,7 +293,7 @@ export default function DatePicker({
 
   const days = getDaysInMonth(currentMonth);
   const monthName = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const daysOfWeek = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const daysOfWeek = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
   return (
     <div className={`date-picker ${className} ${isOpen ? 'open' : ''}`} ref={datePickerRef}>
