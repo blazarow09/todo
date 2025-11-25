@@ -11,6 +11,7 @@ import FilterBar from "./components/FilterBar";
 import SearchBar from "./components/SearchBar";
 import Settings from "./components/Settings";
 import CustomSelect from "./components/CustomSelect";
+import DatePicker from "./components/DatePicker";
 import LabelInput from "./components/LabelInput";
 import FolderGroup from "./components/FolderGroup";
 
@@ -118,7 +119,7 @@ function AppContent() {
         return savedTheme;
       }
     }
-    return 'light';
+    return 'dark';
   };
   const [theme, setTheme] = useState<Theme>(getInitialTheme());
 
@@ -397,6 +398,103 @@ function AppContent() {
     setShowTodoModal(true);
   }, []);
 
+  const handleCloseModal = useCallback(() => {
+    setShowTodoModal(false);
+    setEditingTodo(null);
+    setInput("");
+    setPriority('medium');
+    setLabel("");
+    setDueDate("");
+    setAttachments([]);
+    setTargetFolderId(null);
+    setNotificationEnabled(false);
+    setNotificationType('before');
+    setNotificationDuration(15);
+  }, []);
+
+  const handleFileSelect = useCallback((files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const imageFiles: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/')) {
+        imageFiles.push(file);
+      }
+    }
+
+    if (imageFiles.length === 0) return;
+
+    imageFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        if (dataUrl) {
+          const newAttachment: Attachment = {
+            id: String(Date.now() + Math.random()),
+            type: 'image',
+            url: dataUrl,
+            name: file.name
+          };
+          setAttachments(prev => [...prev, newAttachment]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const handleModalDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverModal(false);
+
+    const items = e.dataTransfer.items;
+    const files: File[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file && file.type.startsWith('image/')) {
+          files.push(file);
+        }
+      }
+    }
+
+    if (files.length > 0) {
+      const fileList = new DataTransfer();
+      files.forEach(f => fileList.items.add(f));
+      handleFileSelect(fileList.files);
+    }
+  }, [handleFileSelect]);
+
+  const handleModalDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const hasImage = Array.from(e.dataTransfer.items).some(item =>
+      item.kind === 'file' && item.type.startsWith('image/')
+    ) || e.dataTransfer.types.includes('text/uri-list');
+
+    if (hasImage) {
+      e.dataTransfer.dropEffect = 'copy';
+      setIsDragOverModal(true);
+    } else {
+      e.dataTransfer.dropEffect = 'none';
+    }
+  }, []);
+
+  const handleModalDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOverModal(false);
+    }
+  }, []);
+
+  const handleRemoveAttachment = useCallback((attachmentId: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+  }, []);
+
   // Drag and Drop
   const handleDragEnd = useCallback((result: DropResult) => {
     // ... existing logic adapted ...
@@ -517,18 +615,20 @@ function AppContent() {
              <Icon icon="mdi:logout" width="20" height="20" />
           </button> */}
         </div>
-        <div className="window-controls">
-          <button className="control-btn minimize" onClick={() => (window as any).electronAPI?.minimize()} title="Minimize">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 5H9" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-            </svg>
-          </button>
-          <button className="control-btn close" onClick={() => (window as any).electronAPI?.close()} title="Close">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 2L8 8M8 2L2 8" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
+        {window.electronAPI && (
+          <div className="window-controls">
+            <button className="control-btn minimize" onClick={() => window.electronAPI?.minimize()} title="Minimize">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 5H9" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button className="control-btn close" onClick={() => window.electronAPI?.close()} title="Close">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 2L8 8M8 2L2 8" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* MIGRATION STATUS */}
@@ -664,45 +764,203 @@ function AppContent() {
 
       {/* Todo Modal */}
       {showTodoModal && (
-        <div className="todo-modal-overlay" onClick={() => setShowTodoModal(false)}>
-          {/* ... simplified modal content reuse ... */}
+        <div className="todo-modal-overlay" onClick={handleCloseModal}>
           <div className="todo-modal" onClick={(e) => e.stopPropagation()}>
-            {/* ... header ... */}
             <div className="todo-modal-header">
               <h3>{editingTodo ? 'Edit Todo' : 'Create New Todo'}</h3>
-              <button className="todo-modal-close" onClick={() => setShowTodoModal(false)}>×</button>
+              <button className="todo-modal-close" onClick={handleCloseModal}>×</button>
             </div>
             <div className="todo-modal-content">
-              <textarea
-                className="input input-textarea"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTodo(targetFolderId); } }}
-                placeholder="What needs to be done?"
-                autoFocus
-              />
-
-              <div className="input-options">
-                <CustomSelect
-                  value={targetFolderId || selectedFolderId || ''}
-                  options={folders.map(f => ({ value: f.id, label: f.name }))}
-                  onChange={val => { setTargetFolderId(val); setSelectedFolderId(val); }}
-                  placeholder="Folder"
+              <div className="input-row">
+                <textarea
+                  className="input input-textarea"
+                  value={input}
+                  ref={(textarea) => {
+                    if (textarea) {
+                      textarea.style.height = 'auto';
+                      textarea.style.height = `${textarea.scrollHeight}px`;
+                    }
+                  }}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      addTodo(targetFolderId);
+                    } else if (e.key === 'Escape') {
+                      handleCloseModal();
+                    }
+                  }}
+                  placeholder="What needs to be done?"
+                  autoFocus
+                  rows={1}
                 />
-                <CustomSelect
-                  value={priority}
-                  options={[{ value: 'low', label: 'Low' }, { value: 'medium', label: 'Medium' }, { value: 'high', label: 'High' }]}
-                  onChange={v => setPriority(v as any)}
-                  placeholder="Priority"
-                />
-                <LabelInput value={label} options={labels} onChange={setLabel} onAddNew={setLabel} placeholder="Label" />
               </div>
-
-              {/* Date & Attachments omitted for brevity but should be here */}
-
+              <div className="input-options">
+                <div className="input-option-group priority-group">
+                  <label className="input-option-label">Priority</label>
+                  <CustomSelect
+                    value={priority}
+                    options={[
+                      { value: 'low', label: 'Low' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'high', label: 'High' }
+                    ]}
+                    onChange={(val) => setPriority(val as 'low' | 'medium' | 'high')}
+                    placeholder="Priority"
+                    className="priority-select"
+                  />
+                </div>
+                <div className="input-option-group label-group">
+                  <label className="input-option-label">Label</label>
+                  <LabelInput
+                    value={label}
+                    options={labels}
+                    onChange={setLabel}
+                    onAddNew={(newLabel) => {
+                      setLabel(newLabel);
+                    }}
+                    placeholder="Label"
+                    className="label-input"
+                  />
+                </div>
+                <div className="input-option-group folder-group">
+                  <label className="input-option-label">Folder</label>
+                  <CustomSelect
+                    value={targetFolderId || selectedFolderId || ''}
+                    options={folders.map(f => ({
+                      value: f.id,
+                      label: f.name
+                    }))}
+                    onChange={(val) => {
+                      setTargetFolderId(val);
+                      setSelectedFolderId(val);
+                    }}
+                    placeholder="Folder"
+                    className="folder-select"
+                  />
+                </div>
+              </div>
+              <div className="input-option-row date-row">
+                <div className="input-option-group date-group">
+                  <label className="input-option-label">Due date</label>
+                  <div className="date-input-row">
+                    <DatePicker
+                      value={dueDate}
+                      onChange={setDueDate}
+                      placeholder="Due date"
+                      className="date-input"
+                    />
+                    <div className="notification-controls">
+                      <label className="notification-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={notificationEnabled}
+                          onChange={(e) => {
+                            setNotificationEnabled(e.target.checked);
+                            if (!e.target.checked) {
+                              setNotificationType('before');
+                              setNotificationDuration(15);
+                            }
+                          }}
+                          className="notification-checkbox"
+                        />
+                        <span>Notify</span>
+                      </label>
+                      {notificationEnabled && (
+                        <>
+                          <CustomSelect
+                            value={String(notificationDuration)}
+                            options={[
+                              { value: '5', label: '5 min' },
+                              { value: '15', label: '15 min' },
+                              { value: '30', label: '30 min' },
+                              { value: '60', label: '1 hour' },
+                              { value: '120', label: '2 hours' },
+                              { value: '240', label: '4 hours' },
+                              { value: '480', label: '8 hours' },
+                              { value: '1440', label: '1 day' }
+                            ]}
+                            onChange={(val) => setNotificationDuration(parseInt(val, 10))}
+                            placeholder="Duration"
+                            className="notification-duration-select"
+                            disabled={notificationType === 'at'}
+                          />
+                          <CustomSelect
+                            value={notificationType}
+                            options={[
+                              { value: 'before', label: 'before' },
+                              { value: 'at', label: 'at the time' },
+                              { value: 'after', label: 'after' }
+                            ]}
+                            onChange={(val) => setNotificationType(val as 'before' | 'at' | 'after')}
+                            placeholder="When"
+                            className="notification-type-select"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div
+                className={`todo-modal-attachments ${isDragOverModal ? 'drag-over' : ''}`}
+                onDrop={handleModalDrop}
+                onDragOver={handleModalDragOver}
+                onDragLeave={handleModalDragLeave}
+              >
+                <label className="input-option-label">Attachments</label>
+                <div className="attachments-upload-area">
+                  <input
+                    type="file"
+                    id="attachment-upload"
+                    accept="image/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileSelect(e.target.files)}
+                  />
+                  <button
+                    type="button"
+                    className="attachments-upload-btn"
+                    onClick={() => {
+                      const input = document.getElementById('attachment-upload') as HTMLInputElement;
+                      input?.click();
+                    }}
+                  >
+                    <Icon icon="mdi:image-plus" width="20" height="20" />
+                    <span>Upload Images</span>
+                  </button>
+                  <span className="attachments-drop-hint">or drop images here / paste from clipboard</span>
+                </div>
+                {attachments.length > 0 && (
+                  <div className="attachments-preview-grid">
+                    {attachments.map(att => (
+                      <div key={att.id} className="attachment-preview-tile">
+                        <img src={att.url} alt={att.name || 'Attachment'} />
+                        <button
+                          className="attachment-preview-remove"
+                          onClick={() => handleRemoveAttachment(att.id)}
+                          title="Remove"
+                        >
+                          <Icon icon="mdi:close" width="14" height="14" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="todo-modal-actions">
-                <button className="todo-modal-cancel" onClick={() => setShowTodoModal(false)}>Cancel</button>
-                <button className="todo-modal-create" onClick={() => addTodo(targetFolderId)} disabled={!input.trim()}>
+                <button className="todo-modal-cancel" onClick={handleCloseModal}>
+                  Cancel
+                </button>
+                <button
+                  className="todo-modal-create"
+                  onClick={() => addTodo(targetFolderId)}
+                  disabled={!input.trim()}
+                >
                   {editingTodo ? 'Save' : 'Create'}
                 </button>
               </div>
@@ -715,9 +973,19 @@ function AppContent() {
         <div className="folders-section">
           {sortedFolders.length === 0 ? (
             <div className="empty-folders-screen">
-              {/* ... empty state ... */}
-              <h2>No Folders Yet</h2>
-              <button onClick={() => setShowFolderPopup(true)}>Create Your First Folder</button>
+              <div className="empty-folders-content">
+                <div className="empty-folders-icon">
+                  <Icon icon="mdi:folder-plus-outline" width="60" height="60" />
+                </div>
+                <h2 className="empty-folders-title">No Folders Yet</h2>
+                <p className="empty-folders-description">
+                  Create your first folder to start organizing your tasks
+                </p>
+                <button className="empty-folders-create-btn" onClick={() => setShowFolderPopup(true)}>
+                  <Icon icon="mdi:plus" width="18" height="18" />
+                  Create Your First Folder
+                </button>
+              </div>
             </div>
           ) : (
             <Droppable droppableId="folders-list" type="FOLDER">

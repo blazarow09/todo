@@ -491,6 +491,13 @@ body {
     margin-bottom: 12px;
 }
 
+.todo-modal-content .input-options-row {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
 .input-option-row {
     display: flex;
     flex-direction: row;

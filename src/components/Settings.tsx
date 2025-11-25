@@ -203,33 +203,35 @@ export default function Settings({
                 )}
               </div>
 
-              <div className="settings-section">
-                <h4>Window</h4>
-                <div className="settings-item">
-                  <label htmlFor="always-on-top">Always on top</label>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="always-on-top"
-                      checked={alwaysOnTop}
-                      onChange={(e) => onAlwaysOnTopChange(e.target.checked)}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
+              {window.electronAPI && (
+                <div className="settings-section">
+                  <h4>Window</h4>
+                  <div className="settings-item">
+                    <label htmlFor="always-on-top">Always on top</label>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="always-on-top"
+                        checked={alwaysOnTop}
+                        onChange={(e) => onAlwaysOnTopChange(e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <div className="settings-item">
+                    <label htmlFor="launch-at-startup">Launch at startup</label>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="launch-at-startup"
+                        checked={launchAtStartup}
+                        onChange={(e) => onLaunchAtStartupChange(e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
                 </div>
-                <div className="settings-item">
-                  <label htmlFor="launch-at-startup">Launch at startup</label>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="launch-at-startup"
-                      checked={launchAtStartup}
-                      onChange={(e) => onLaunchAtStartupChange(e.target.checked)}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
+              )}
 
               <div className="settings-section">
                 <h4>Folders</h4>
