@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Todo, Theme, Folder } from '../types';
+import { version } from '../../package.json';
 import './Settings.css';
 
 type SettingsProps = {
@@ -322,11 +323,11 @@ export default function Settings({
               </div>
 
               <div className="settings-version">
-                <span>Version {(globalThis as any).__APP_VERSION__ || '2.3.3'}</span>
+                <span>Version {version}</span>
               </div>
 
               {onLogout && (
-                <div className="settings-section" style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                <div className="settings-section" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                   <button
                     className="logout-btn"
                     onClick={() => {
