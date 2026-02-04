@@ -8,7 +8,7 @@ A minimal desktop todo widget built with Electron + React + TypeScript. Runs as 
 - ✅ Always-on-top mode
 - ✅ LocalStorage persistence
 - ✅ Clean, minimal UI
-- ✅ Easy to install - no Rust required!
+- ✅ Easy to install!
 
 ## Prerequisites
 
@@ -18,8 +18,6 @@ You only need:
    ```bash
    npm install -g pnpm
    ```
-
-That's it! No Rust, no Windows SDK, no complicated setup.
 
 ## Setup
 
@@ -119,8 +117,8 @@ Edit `electron/main.js` to adjust:
 
 ## Why Electron instead of Tauri?
 
-- ✅ **Easier setup** - Only requires Node.js (no Rust installation needed)
-- ✅ **Faster development** - No Rust compilation time
+- ✅ **Easier setup** - Only requires Node.js
+- ✅ **Faster development** -
 - ✅ **More familiar** - Uses JavaScript/TypeScript throughout
 - ✅ **Better ecosystem** - Access to the entire npm ecosystem
 
