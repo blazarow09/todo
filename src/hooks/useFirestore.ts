@@ -11,7 +11,20 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Todo, Folder } from '../types';
+import { Todo, Folder, Attachment } from '../types';
+
+// Firestore rejects undefined - remove from objects before write
+function removeUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const result: Partial<T> = {};
+  for (const key of Object.keys(obj) as (keyof T)[]) {
+    if (obj[key] !== undefined) result[key] = obj[key];
+  }
+  return result;
+}
+
+function sanitizeAttachments(attachments: Attachment[]): Record<string, unknown>[] {
+  return attachments.map((att) => removeUndefined({ id: att.id, type: att.type, url: att.url, name: att.name }));
+}
 
 export function useFirestoreTodos(userId: string | undefined) {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -46,16 +59,21 @@ export function useFirestoreTodos(userId: string | undefined) {
 
   const addTodo = async (todo: Omit<Todo, 'id'>) => {
     if (!userId) return;
-    await addDoc(collection(db, 'users', userId, 'todos'), {
-      ...todo,
-      createdAt: serverTimestamp()
-    });
+    const data = removeUndefined({ ...todo, createdAt: serverTimestamp() } as Record<string, unknown>) as Record<string, unknown>;
+    if (data.attachments && Array.isArray(data.attachments) && data.attachments.length > 0) {
+      data.attachments = sanitizeAttachments(data.attachments as Attachment[]);
+    }
+    await addDoc(collection(db, 'users', userId, 'todos'), data);
   };
 
   const updateTodo = async (id: string, updates: Partial<Todo>) => {
     if (!userId) return;
+    const sanitized = removeUndefined(updates as Record<string, unknown>) as Partial<Todo>;
+    if (sanitized.attachments?.length) {
+      sanitized.attachments = sanitizeAttachments(sanitized.attachments) as Attachment[];
+    }
     const todoRef = doc(db, 'users', userId, 'todos', id);
-    await updateDoc(todoRef, updates);
+    await updateDoc(todoRef, sanitized);
   };
 
   const deleteTodo = async (id: string) => {

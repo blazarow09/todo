@@ -1,6 +1,6 @@
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Todo, Folder } from '../types';
+import { Todo, Folder, Attachment } from '../types';
 
 // Helper function to remove undefined values from an object
 // Firestore doesn't accept undefined values
@@ -12,6 +12,11 @@ function removeUndefinedFields<T extends Record<string, unknown>>(obj: T): Parti
     }
   }
   return result;
+}
+
+// Sanitize attachments - Firestore rejects undefined in nested array objects
+function sanitizeAttachments(attachments: Attachment[]): Record<string, unknown>[] {
+  return attachments.map((att) => removeUndefinedFields({ id: att.id, type: att.type, url: att.url, name: att.name }));
 }
 
 export async function migrateLocalDataToFirebase(
@@ -48,8 +53,10 @@ export async function migrateLocalDataToFirebase(
       const newFolderId = oldFolderId ? folderIdMap[oldFolderId] : null;
       
       // Clean undefined fields before sending to Firestore
-      const cleanedTodoData = removeUndefinedFields(todoData);
-
+      const cleanedTodoData = removeUndefinedFields(todoData) as Record<string, unknown>;
+      if (cleanedTodoData.attachments && Array.isArray(cleanedTodoData.attachments) && cleanedTodoData.attachments.length > 0) {
+        cleanedTodoData.attachments = sanitizeAttachments(cleanedTodoData.attachments as Attachment[]);
+      }
       await addDoc(collection(db, 'users', userId, 'todos'), {
         ...cleanedTodoData,
         folderId: newFolderId,

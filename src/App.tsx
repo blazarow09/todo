@@ -36,6 +36,17 @@ function removeUndefinedFields<T extends Record<string, unknown>>(obj: T): Parti
   return result;
 }
 
+// Sanitize attachments for Firestore - nested objects must not contain undefined
+// (Firestore rejects "Property array contains an invalid nested entity")
+function sanitizeAttachmentsForFirestore(attachments: Attachment[]): Attachment[] {
+  return attachments.map((att) => removeUndefinedFields({
+    id: att.id,
+    type: att.type,
+    url: att.url,
+    name: att.name,
+  }) as Attachment);
+}
+
 const THEME_KEY = "todo_theme";
 const SELECTED_FOLDER_KEY = "todo_selected_folder";
 const ALWAYS_ON_TOP_KEY = "todo_always_on_top";
@@ -186,7 +197,7 @@ function AppContent() {
       if (imageFiles.length > 0) {
         e.preventDefault();
         e.stopPropagation();
-        
+
         imageFiles.forEach((file) => {
           const reader = new FileReader();
           reader.onload = (event) => {
@@ -233,7 +244,7 @@ function AppContent() {
   // Manage loading indicator with minimum display time to prevent flashing
   useEffect(() => {
     const isLoading = pendingFirebaseOps > 0 || isCheckingUpdates || todosLoading || foldersLoading || isMigrating;
-    
+
     if (isLoading) {
       // Show immediately when loading starts
       setShowLoadingIndicator(true);
@@ -353,7 +364,7 @@ function AppContent() {
           label: label.trim(),
           folderId: folderToUse,
           ...(dueDate && { dueDate }),
-          ...(attachments.length > 0 && { attachments }),
+          ...(attachments.length > 0 && { attachments: sanitizeAttachmentsForFirestore(attachments) }),
           ...(notificationEnabled && { notificationEnabled }),
           ...(notificationEnabled && notificationType && { notificationType }),
           ...(notificationEnabled && notificationType !== 'at' && notificationDuration && { notificationDuration }),
@@ -381,7 +392,7 @@ function AppContent() {
           folderId: folderToUse,
           order: newOrder,
           ...(dueDate && { dueDate }),
-          ...(attachments.length > 0 && { attachments }),
+          ...(attachments.length > 0 && { attachments: sanitizeAttachmentsForFirestore(attachments) }),
           ...(notificationEnabled && { notificationEnabled }),
           ...(notificationEnabled && notificationType && { notificationType }),
           ...(notificationEnabled && notificationType !== 'at' && notificationDuration && { notificationDuration }),
@@ -658,7 +669,7 @@ function AppContent() {
                 ...(newFolderId !== undefined && { folderId: newFolderId }),
                 ...(todoData.dueDate && { dueDate: String(todoData.dueDate) }),
                 ...(todoData.notes && { notes: String(todoData.notes) }),
-                ...(todoData.attachments && Array.isArray(todoData.attachments) && { attachments: todoData.attachments }),
+                ...(todoData.attachments && Array.isArray(todoData.attachments) && { attachments: sanitizeAttachmentsForFirestore(todoData.attachments as Attachment[]) }),
                 isArchived: Boolean(todoData.isArchived ?? false),
                 createdAt: todoData.createdAt ? (typeof todoData.createdAt === 'number' ? todoData.createdAt : new Date(todoData.createdAt).getTime()) : Date.now(),
                 ...(todoData.notificationEnabled !== undefined && { notificationEnabled: Boolean(todoData.notificationEnabled) }),
@@ -862,7 +873,7 @@ function AppContent() {
     if (imageFiles.length > 0) {
       e.preventDefault();
       e.stopPropagation();
-      
+
       imageFiles.forEach((file) => {
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -1128,9 +1139,9 @@ function AppContent() {
         <div className="titlebar-actions">
           <div className={`loading-indicator ${showLoadingIndicator ? 'visible' : 'hidden'}`} title={
             isCheckingUpdates ? "Checking for updates..." :
-            isMigrating ? "Migrating data..." :
-            todosLoading || foldersLoading ? "Loading data..." :
-            "Syncing..."
+              isMigrating ? "Migrating data..." :
+                todosLoading || foldersLoading ? "Loading data..." :
+                  "Syncing..."
           }>
             <div className="spinner"></div>
           </div>
