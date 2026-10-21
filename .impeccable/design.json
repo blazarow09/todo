@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-21T06:20:18+00:00",
+  "title": "Design System: My Tasks",
+  "extensions": {
+    "colorMeta": {
+      "hue-0": {
+        "role": "tertiary",
+        "displayName": "Orange",
+        "tonalRamp": [
+          "oklch(15% 0.15 55)",
+          "oklch(25% 0.15 55)",
+          "oklch(35% 0.15 55)",
+          "oklch(45% 0.15 55)",
+          "oklch(55% 0.15 55)",
+          "oklch(68% 0.15 55)",
+          "oklch(82% 0.15 55)",
+          "oklch(95% 0.15 55)"
+        ]
+      },
+      "hue-1": {
+        "role": "tertiary",
+        "displayName": "Marigold",
+        "tonalRamp": [
+          "oklch(15% 0.15 85)",
+          "oklch(25% 0.15 85)",
+          "oklch(35% 0.15 85)",
+          "oklch(45% 0.15 85)",
+          "oklch(55% 0.15 85)",
+          "oklch(68% 0.15 85)",
+          "oklch(82% 0.15 85)",
+          "oklch(95% 0.15 85)"
+        ]
+      },
+      "hue-2": {
+        "role": "tertiary",
+        "displayName": "Leaf green",
+        "tonalRamp": [
+          "oklch(15% 0.15 145)",
+          "oklch(25% 0.15 145)",
+          "oklch(35% 0.15 145)",
+          "oklch(45% 0.15 145)",
+          "oklch(55% 0.15 145)",
+          "oklch(68% 0.15 145)",
+          "oklch(82% 0.15 145)",
+          "oklch(95% 0.15 145)"
+        ]
+      },
+      "hue-3": {
+        "role": "tertiary",
+        "displayName": "Teal",
+        "tonalRamp": [
+          "oklch(15% 0.15 190)",
+          "oklch(25% 0.15 190)",
+          "oklch(35% 0.15 190)",
+          "oklch(45% 0.15 190)",
+          "oklch(55% 0.15 190)",
+          "oklch(68% 0.15 190)",
+          "oklch(82% 0.15 190)",
+          "oklch(95% 0.15 190)"
+        ]
+      },
+      "hue-4": {
+        "role": "tertiary",
+        "displayName": "Cobalt",
+        "tonalRamp": [
+          "oklch(15% 0.15 268)",
+          "oklch(25% 0.15 268)",
+          "oklch(35% 0.15 268)",
+          "oklch(45% 0.15 268)",
+          "oklch(55% 0.15 268)",
+          "oklch(68% 0.15 268)",
+          "oklch(82% 0.15 268)",
+          "oklch(95% 0.15 268)"
+        ]
+      },
+      "hue-5": {
+        "role": "tertiary",
+        "displayName": "Magenta",
+        "tonalRamp": [
+          "oklch(15% 0.15 350)",
+          "oklch(25% 0.15 350)",
+          "oklch(35% 0.15 350)",
+          "oklch(45% 0.15 350)",
+          "oklch(55% 0.15 350)",
+          "oklch(68% 0.15 350)",
+          "oklch(82% 0.15 350)",
+          "oklch(95% 0.15 350)"
+        ]
+      },
+      "hue-6": {
+        "role": "tertiary",
+        "displayName": "Umber",
+        "tonalRamp": [
+          "oklch(15% 0.15 45)",
+          "oklch(25% 0.15 45)",
+          "oklch(35% 0.15 45)",
+          "oklch(45% 0.15 45)",
+          "oklch(55% 0.15 45)",
+          "oklch(68% 0.15 45)",
+          "oklch(82% 0.15 45)",
+          "oklch(95% 0.15 45)"
+        ]
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15% 0.01 265)",
+          "oklch(25% 0.01 265)",
+          "oklch(35% 0.01 265)",
+          "oklch(45% 0.01 265)",
+          "oklch(55% 0.01 265)",
+          "oklch(68% 0.01 265)",
+          "oklch(82% 0.01 265)",
+          "oklch(95% 0.01 265)"
+        ]
+      },
+      "page": {
+        "role": "neutral",
+        "displayName": "Page",
+        "tonalRamp": [
+          "oklch(15% 0.012 255)",
+          "oklch(25% 0.012 255)",
+          "oklch(35% 0.012 255)",
+          "oklch(45% 0.012 255)",
+          "oklch(55% 0.012 255)",
+          "oklch(68% 0.012 255)",
+          "oklch(82% 0.012 255)",
+          "oklch(95% 0.012 255)"
+        ]
+      },
+      "leaf": {
+        "role": "neutral",
+        "displayName": "Leaf"
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Panel"
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line"
+      },
+      "danger": {
+        "role": "error",
+        "displayName": "Vermilion",
+        "tonalRamp": [
+          "oklch(15% 0.18 30)",
+          "oklch(25% 0.18 30)",
+          "oklch(35% 0.18 30)",
+          "oklch(45% 0.18 30)",
+          "oklch(55% 0.18 30)",
+          "oklch(68% 0.18 30)",
+          "oklch(82% 0.18 30)",
+          "oklch(95% 0.18 30)"
+        ]
+      },
+      "warn": {
+        "role": "warning",
+        "displayName": "Amber ink"
+      },
+      "focus": {
+        "role": "accent",
+        "displayName": "Focus cobalt"
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Login heading."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Sheet and settings titles; folder names at 14px."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Task text and settings rows."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels, button text, section captions."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "Dates, counts, times, versions."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sheet-shadow",
+        "value": "0 18px 40px -12px rgba(21,30,48,0.32), 0 2px 6px rgba(21,30,48,0.08)",
+        "purpose": "Dialogs and settings."
+      },
+      {
+        "name": "pop-shadow",
+        "value": "0 10px 24px -8px rgba(21,30,48,0.28), 0 1px 3px rgba(21,30,48,0.08)",
+        "purpose": "Dropdowns, date picker, New task button."
+      },
+      {
+        "name": "hole-shadow",
+        "value": "inset 0 1px 2px rgba(21,30,48,0.22)",
+        "purpose": "Unchecked punched-hole checkbox."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Entering and pressed states."
+      },
+      {
+        "name": "t-fast",
+        "value": "120ms",
+        "purpose": "Hover, press, colour changes."
+      },
+      {
+        "name": "t-med",
+        "value": "180ms",
+        "purpose": "Chevrons, toggles, rail tabs."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sheet-grid",
+        "value": "480px",
+        "purpose": "Task sheet fields go to two columns above this width."
+      },
+      {
+        "name": "settings-data",
+        "value": "420px",
+        "purpose": "Settings data actions stack to one column below this width."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ink action: Create, Save, Create folder.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Create</button>",
+      "css": ".ds-btn{height:34px;padding:0 16px;border-radius:6px;font:600 12px/1 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;cursor:pointer;transition:transform 120ms cubic-bezier(0.23,1,0.32,1),background-color 120ms ease}.ds-btn:active{transform:scale(0.97)}.ds-btn:focus-visible{outline:2px solid #2f4bd8;outline-offset:2px}.ds-btn-primary{border:0;background:#15171c;color:#fff}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Cancel and neutral actions.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn{height:34px;padding:0 16px;border-radius:6px;font:600 12px/1 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;cursor:pointer;transition:transform 120ms cubic-bezier(0.23,1,0.32,1),background-color 120ms ease}.ds-btn:active{transform:scale(0.97)}.ds-btn:focus-visible{outline:2px solid #2f4bd8;outline-offset:2px}.ds-btn-secondary{border:1px solid #d3d9e2;background:#fff;color:#464c59}.ds-btn-secondary:hover{background:#e4e8ee}"
+    },
+    {
+      "name": "New Task Button",
+      "kind": "button",
+      "refersTo": "button-new-task",
+      "description": "Pinned bottom-right of the folder column.",
+      "html": "<button class=\"ds-new\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z\"/></svg>New task</button>",
+      "css": ".ds-new{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px;border:0;border-radius:10px;background:#15171c;color:#fff;font:650 13px/1 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;box-shadow:0 10px 24px -8px rgba(21,30,48,0.28),0 1px 3px rgba(21,30,48,0.08);cursor:pointer;transition:transform 120ms cubic-bezier(0.23,1,0.32,1)}.ds-new:active{transform:scale(0.97)}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Single-line field; same shape as the select trigger.",
+      "html": "<input class=\"ds-input\" placeholder=\"Label\">",
+      "css": ".ds-input{height:34px;padding:0 10px;border:1px solid #d3d9e2;border-radius:6px;background:#fff;color:#15171c;font:13px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;outline:none;transition:border-color 120ms ease}.ds-input::placeholder{color:#69707d}.ds-input:hover{border-color:#69707d}.ds-input:focus{border-color:#15171c}"
+    },
+    {
+      "name": "Due Stamp",
+      "kind": "chip",
+      "refersTo": "stamp-overdue",
+      "description": "Mono date stamp in neutral, warning and overdue variants.",
+      "html": "<span class=\"ds-stamp\">10/23, 09:15</span> <span class=\"ds-stamp ds-warn\">10/22, 08:00</span> <span class=\"ds-stamp ds-over\">10/20, 21:15</span>",
+      "css": ".ds-stamp{display:inline-flex;align-items:center;height:20px;padding:0 6px;border:1px solid #d3d9e2;border-radius:4px;font:11px/1 'Cascadia Mono',Consolas,ui-monospace,monospace;color:#464c59}.ds-warn{color:#9a5b00;background:#fbf0dc;border-color:rgba(154,91,0,0.45)}.ds-over{color:#c8261b;background:#fbe9e7;border-color:rgba(200,38,27,0.45);font-weight:600}"
+    },
+    {
+      "name": "Folder Divider",
+      "kind": "custom",
+      "description": "Hue tab standing on its rule, with a mono count stamp.",
+      "html": "<div class=\"ds-div\"><span class=\"ds-div-tab\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z\"/></svg>Work</span><span class=\"ds-div-count\">0/4</span></div>",
+      "css": ".ds-div{display:flex;align-items:flex-end;justify-content:space-between;width:280px;border-bottom:2px solid #f2c230}.ds-div-tab{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 12px 0 8px;border-radius:6px 6px 0 0;background:#f2c230;color:#1f1700;font:650 14px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif}.ds-div-count{margin-bottom:6px;padding:0 6px;border:1px solid #d3d9e2;border-radius:4px;font:11px/18px 'Cascadia Mono',Consolas,ui-monospace,monospace;color:#464c59}"
+    },
+    {
+      "name": "Task Row",
+      "kind": "custom",
+      "description": "Punched-hole checkbox, text, then stamps; the hole fills with the divider hue when done.",
+      "html": "<div class=\"ds-row\"><span class=\"ds-hole\"></span><span class=\"ds-text\">Send the invoice</span></div><div class=\"ds-row ds-done\"><span class=\"ds-hole\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z\"/></svg></span><span class=\"ds-text\">Book the dentist</span></div>",
+      "css": ".ds-row{display:flex;align-items:center;gap:10px;width:280px;min-height:42px;padding:0 8px 0 12px;border-bottom:1px solid #e6e9ef;background:#fff;font:14px/1.45 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:#15171c}.ds-hole{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1px solid #d3d9e2;background:#eef1f5;box-shadow:inset 0 1px 2px rgba(21,30,48,0.22);color:#fff;flex-shrink:0}.ds-done .ds-hole{background:#3e9f4b;border-color:#3e9f4b;box-shadow:none}.ds-done .ds-text{color:#69707d;text-decoration:line-through}"
+    },
+    {
+      "name": "Rail Tab",
+      "kind": "nav",
+      "description": "Fore-edge tab per folder; the tab for the folder in view slides fully out.",
+      "html": "<div class=\"ds-rail\"><button class=\"ds-rtab ds-on\" style=\"background:#f08a24;color:#1d0f02\">Today</button><button class=\"ds-rtab\" style=\"background:#2f4bd8;color:#fff\">Someday</button></div>",
+      "css": ".ds-rail{display:flex;flex-direction:column;gap:3px;width:30px;padding:12px 0;background:#e4e8ee;overflow:hidden}.ds-rtab{width:28px;min-height:56px;padding:8px 0 8px 8px;border:0;border-radius:0 6px 6px 0;writing-mode:vertical-rl;font:650 11px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;transform:translateX(-8px);transition:transform 180ms cubic-bezier(0.23,1,0.32,1);cursor:pointer}.ds-rtab:hover{transform:translateX(-4px)}.ds-on{transform:none}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Ring Binder",
+    "overview": "My Tasks is a small, always-on-top window that lives beside other work. It is designed like a personal organizer: each folder is a coloured tab divider, tasks are entries on a ruled leaf, the checkbox is a punched hole that fills with the divider's colour when an entry is done. Everything else stays quiet so the dividers do the wayfinding.\n\nThe window is narrow (360 to 600px) and glanced at many times a day, so hierarchy comes from size, weight and the divider colour, never from decoration. Ink is the only action colour. Vermilion is held back for overdue items and errors, so it always means something.",
+    "keyCharacteristics": [
+      "Seven divider hues assigned by folder order, used at full strength on tabs only.",
+      "A fore-edge tab rail on the right that mirrors the folders and turns to one on click.",
+      "Ruled rows, punched-hole checkboxes, mono stamps for dates and counts.",
+      "Neutral leaf and page surfaces; ink buttons; one held-out danger colour.",
+      "Fast, ease-out motion that confirms presses and never decorates."
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "body": "Ink is the only action colour. Divider hues identify folders; they never become buttons.",
+        "section": "colors"
+      },
+      {
+        "name": "The Held-Out Red Rule",
+        "body": "Danger appears only for overdue, errors and destructive actions, so it is never decorative.",
+        "section": "colors"
+      },
+      {
+        "name": "The Size-and-Weight Rule",
+        "body": "Hierarchy comes from size and weight in one family. No second display face.",
+        "section": "typography"
+      },
+      {
+        "name": "The Float-Only Rule",
+        "body": "Leaves, rows and tabs carry borders, not shadows.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** assign divider hues by folder order and keep them on tabs, rules and checked holes.",
+      "**Do** use mono stamps for any date, time or count.",
+      "**Do** give every pressable element `scale(0.97)` on press with the 120ms ease-out curve.",
+      "**Do** keep the custom background working: leaves become 82% opaque over it."
+    ],
+    "donts": [
+      "**Don't** use a divider hue as a button or text colour.",
+      "**Don't** use red for anything that is not overdue, an error or destructive.",
+      "**Don't** add shadows to leaves or rows, or gradients and glows anywhere.",
+      "**Don't** use emoji or hand-drawn SVG; icons come from the Iconify mdi set, outline variants."
+    ]
+  }
+}

@@ -361,7 +361,9 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
           onChange={() => onToggle(todo.id)}
           className="checkbox"
         />
-        <span className="checkmark"></span>
+        <span className="checkmark">
+          <Icon icon="mdi:check-bold" width="12" height="12" />
+        </span>
         <span className={`priority-dot priority-${todo.priority}`}></span>
       </label>
       <div className="todo-content" onDoubleClick={handleDoubleClick}>
@@ -369,18 +371,28 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
           <span className="todo-text">{parseTextWithLinks(todo.text, searchQuery)}</span>
           <div className="todo-actions-row">
             {todo.notes && (
-              <button className="action-btn notes-toggle" onClick={() => setShowNotes(!showNotes)} title="Notes">
-                📝
+              <button
+                className={`action-btn notes-toggle ${showNotes ? 'open' : ''}`}
+                onClick={() => setShowNotes(!showNotes)}
+                title={showNotes ? 'Hide notes' : 'Show notes'}
+                aria-label={showNotes ? 'Hide notes' : 'Show notes'}
+                aria-expanded={showNotes}
+              >
+                <Icon icon="mdi:note-text-outline" width="15" height="15" />
               </button>
             )}
           </div>
         </div>
         <div className="todo-meta">
           {todo.label && (
-            <span className="label-badge">{todo.label}</span>
+            <span className="label-badge">
+              <Icon icon="mdi:tag-outline" width="12" height="12" />
+              {todo.label}
+            </span>
           )}
           {todo.dueDate && (
             <span className={`due-date ${dueDateStatus ? dueDateStatus : ''}`}>
+              <Icon icon={dueDateStatus === 'overdue' ? 'mdi:alert-circle-outline' : 'mdi:calendar-blank-outline'} width="12" height="12" />
               {(() => {
                 // Parse date string as local time (YYYY-MM-DD or YYYY-MM-DDTHH:mm format)
                 const [datePart, timePart] = todo.dueDate.split('T');
@@ -439,6 +451,7 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
                     e.stopPropagation();
                     handleRemoveAttachment(att.id);
                   }}
+                  aria-label="Remove image"
                 >
                   <Icon icon="mdi:close" width="12" height="12" />
                 </button>
@@ -449,14 +462,12 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
       </div>
       <div className="todo-item-actions">
         {onEdit && (
-          <button className="edit-btn" onClick={() => onEdit(todo)} title="Edit">
-            <Icon icon="mdi:pencil" width="16" height="16" />
+          <button className="edit-btn" onClick={() => onEdit(todo)} title="Edit" aria-label="Edit task">
+            <Icon icon="mdi:pencil-outline" width="16" height="16" />
           </button>
         )}
-        <button className="delete-btn" onClick={() => onDelete(todo.id)} title="Delete">
-          <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M4 4L14 14M4 14L14 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+        <button className="delete-btn" onClick={() => onDelete(todo.id)} title="Archive" aria-label="Archive task">
+          <Icon icon="mdi:archive-arrow-down-outline" width="16" height="16" />
         </button>
       </div>
 
@@ -464,7 +475,7 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
         <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>
           <div className="lightbox-content" onClick={e => e.stopPropagation()}>
             <img src={lightboxUrl} alt="Full size" />
-            <button className="lightbox-close" onClick={() => setLightboxUrl(null)}>
+            <button className="lightbox-close" onClick={() => setLightboxUrl(null)} aria-label="Close">
               <Icon icon="mdi:close" width="24" height="24" />
             </button>
           </div>

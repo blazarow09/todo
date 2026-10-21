@@ -1,29 +1,32 @@
 .label-input-wrapper {
   position: relative;
-  flex: 1;
-  min-width: 100px;
-}
-
-.label-input-wrapper .label-input {
   width: 100%;
-  padding: 6px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+}
+
+.label-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: var(--leaf);
+  color: var(--ink);
   font-size: 13px;
-  background: var(--input-bg);
-  color: var(--text-primary);
   outline: none;
-  transition: all 0.2s;
-  font-family: inherit;
+  transition: border-color var(--t-fast) ease;
 }
 
-.label-input:focus {
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+.label-input::placeholder {
+  color: var(--ink-3);
 }
 
+.label-input:hover {
+  border-color: var(--ink-3);
+}
+
+.label-input:focus,
 .label-input-wrapper.open .label-input {
-  border-color: #667eea;
+  border-color: var(--ink);
 }
 
 .label-dropdown {
@@ -31,76 +34,44 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px var(--shadow);
-  z-index: 1000;
-  max-height: 200px;
+  z-index: 2000;
+  max-height: 220px;
   overflow-y: auto;
-  animation: slideDown 0.2s ease;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: var(--leaf);
+  box-shadow: var(--pop-shadow);
+  transform-origin: top left;
+  animation: pop-in 150ms var(--ease-out) both;
 }
 
 .label-option {
   width: 100%;
-  padding: 8px 12px;
-  border: none;
+  min-height: 30px;
+  padding: 0 var(--s2);
+  display: flex;
+  align-items: center;
+  border: 0;
+  border-radius: 4px;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--ink);
   font-size: 13px;
   text-align: left;
-  cursor: pointer;
-  transition: background 0.15s;
-  font-family: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .label-option:hover {
-  background: var(--bg-secondary);
+  background: var(--panel);
 }
 
 .label-option.selected {
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
-  font-weight: 500;
+  font-weight: 650;
 }
 
 .label-option.add-new {
-  color: #667eea;
-  font-weight: 500;
-  border-top: 1px solid var(--border-color);
-  margin-top: 4px;
-  padding-top: 10px;
+  color: var(--focus);
+  font-weight: 600;
 }
-
-.label-option.add-new:hover {
-  background: rgba(102, 126, 234, 0.1);
-}
-
-.label-dropdown::-webkit-scrollbar {
-  width: 6px;
-}
-
-.label-dropdown::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-}
-
-.label-dropdown::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
-}
-
-.label-dropdown::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-

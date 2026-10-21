@@ -14,6 +14,7 @@ import CustomSelect from "./components/CustomSelect";
 import DatePicker from "./components/DatePicker";
 import LabelInput from "./components/LabelInput";
 import FolderGroup from "./components/FolderGroup";
+import TabRail from "./components/TabRail";
 
 // Firebase Imports
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -161,6 +162,7 @@ function AppContent() {
     return saved ? parseFloat(saved) : 0.3;
   });
 
+  const foldersSectionRef = useRef<HTMLDivElement>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -1118,7 +1120,7 @@ function AppContent() {
 
   return (
     <div
-      className="app"
+      className={`app ${hasBackground ? 'has-bg' : ''}`}
       style={{
         backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
         backgroundColor: backgroundColor || undefined,
@@ -1145,8 +1147,8 @@ function AppContent() {
           }>
             <div className="spinner"></div>
           </div>
-          <button className="settings-toggle" onClick={() => setShowSettings(true)}>
-            <Icon icon="mdi:cog" width="20" height="20" />
+          <button className="icon-btn settings-toggle" onClick={() => setShowSettings(true)} title="Settings" aria-label="Settings">
+            <Icon icon="mdi:cog-outline" width="20" height="20" />
           </button>
           {/* Logout Button */}
           {/* <button className="settings-toggle" onClick={() => auth.signOut()}>
@@ -1155,15 +1157,11 @@ function AppContent() {
         </div>
         {window.electronAPI && (
           <div className="window-controls">
-            <button className="control-btn minimize" onClick={() => window.electronAPI?.minimize()} title="Minimize">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M1 5H9" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-              </svg>
+            <button className="control-btn minimize" onClick={() => window.electronAPI?.minimize()} title="Minimize" aria-label="Minimize">
+              <Icon icon="mdi:window-minimize" width="16" height="16" />
             </button>
-            <button className="control-btn close" onClick={() => window.electronAPI?.close()} title="Close">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2 2L8 8M8 2L2 8" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-              </svg>
+            <button className="control-btn close" onClick={() => window.electronAPI?.close()} title="Close" aria-label="Close">
+              <Icon icon="mdi:close" width="16" height="16" />
             </button>
           </div>
         )}
@@ -1185,8 +1183,10 @@ function AppContent() {
           <div className="folder-popup" onClick={(e) => e.stopPropagation()}>
             {/* ... content ... */}
             <div className="folder-popup-header">
-              <h3>Create New Folder</h3>
-              <button className="folder-popup-close" onClick={() => setShowFolderPopup(false)}>×</button>
+              <h3>New folder</h3>
+              <button className="icon-btn folder-popup-close" onClick={() => setShowFolderPopup(false)} aria-label="Close">
+                <Icon icon="mdi:close" width="18" height="18" />
+              </button>
             </div>
             <div className="folder-popup-content">
               <input
@@ -1202,8 +1202,8 @@ function AppContent() {
                 autoFocus
               />
               <div className="folder-popup-actions">
-                <button className="folder-popup-cancel" onClick={() => setShowFolderPopup(false)}>Cancel</button>
-                <button className="folder-popup-create" onClick={createFolder} disabled={!newFolderName.trim()}>Create</button>
+                <button className="btn folder-popup-cancel" onClick={() => setShowFolderPopup(false)}>Cancel</button>
+                <button className="btn folder-popup-create" onClick={createFolder} disabled={!newFolderName.trim()}>Create</button>
               </div>
             </div>
           </div>
@@ -1215,14 +1215,16 @@ function AppContent() {
         <div className="folder-popup-overlay" onClick={() => setFolderToDelete(null)}>
           <div className="folder-popup" onClick={(e) => e.stopPropagation()}>
             <div className="folder-popup-header">
-              <h3>Delete Folder</h3>
-              <button className="folder-popup-close" onClick={() => setFolderToDelete(null)}>×</button>
+              <h3>Delete folder</h3>
+              <button className="icon-btn folder-popup-close" onClick={() => setFolderToDelete(null)} aria-label="Close">
+                <Icon icon="mdi:close" width="18" height="18" />
+              </button>
             </div>
             <div className="folder-popup-content">
-              <p>Delete folder "<strong>{folderToDelete.name}</strong>"? All todos in this folder will be deleted.</p>
+              <p>Delete folder "<strong>{folderToDelete.name}</strong>"? Every task in it is deleted too.</p>
               <div className="folder-popup-actions">
-                <button className="folder-popup-cancel" onClick={() => setFolderToDelete(null)}>Cancel</button>
-                <button className="folder-popup-delete" onClick={confirmDeleteFolder}>Delete</button>
+                <button className="btn folder-popup-cancel" onClick={() => setFolderToDelete(null)}>Cancel</button>
+                <button className="btn folder-popup-delete" onClick={confirmDeleteFolder}>Delete</button>
               </div>
             </div>
           </div>
@@ -1285,7 +1287,7 @@ function AppContent() {
       {/* FAB */}
       {folders.length > 0 && (
         <button
-          className="fab-add-todo"
+          className="btn fab-add-todo"
           onClick={() => {
             setTargetFolderId(null);
             setSelectedFolderId(null);
@@ -1300,6 +1302,7 @@ function AppContent() {
           }}
         >
           <Icon icon="mdi:plus" width="18" height="18" />
+          <span>New task</span>
         </button>
       )}
 
@@ -1308,8 +1311,10 @@ function AppContent() {
         <div className="todo-modal-overlay" onClick={handleCloseModal}>
           <div className="todo-modal" onClick={(e) => e.stopPropagation()}>
             <div className="todo-modal-header">
-              <h3>{editingTodo ? 'Edit Todo' : 'Create New Todo'}</h3>
-              <button className="todo-modal-close" onClick={handleCloseModal}>×</button>
+              <h3>{editingTodo ? 'Edit task' : 'New task'}</h3>
+              <button className="icon-btn todo-modal-close" onClick={handleCloseModal} aria-label="Close">
+                <Icon icon="mdi:close" width="18" height="18" />
+              </button>
             </div>
             <div className="todo-modal-content" onPaste={handlePaste}>
               <div className="input-row">
@@ -1465,16 +1470,16 @@ function AppContent() {
                   />
                   <button
                     type="button"
-                    className="attachments-upload-btn"
+                    className="btn attachments-upload-btn"
                     onClick={() => {
                       const input = document.getElementById('attachment-upload') as HTMLInputElement;
                       input?.click();
                     }}
                   >
-                    <Icon icon="mdi:image-plus" width="20" height="20" />
-                    <span>Upload Images</span>
+                    <Icon icon="mdi:image-plus-outline" width="16" height="16" />
+                    <span>Add images</span>
                   </button>
-                  <span className="attachments-drop-hint">or drop images here / paste from clipboard</span>
+                  <span className="attachments-drop-hint">or drop or paste them here</span>
                 </div>
                 {attachments.length > 0 && (
                   <div className="attachments-preview-grid">
@@ -1494,11 +1499,11 @@ function AppContent() {
                 )}
               </div>
               <div className="todo-modal-actions">
-                <button className="todo-modal-cancel" onClick={handleCloseModal}>
+                <button className="btn todo-modal-cancel" onClick={handleCloseModal}>
                   Cancel
                 </button>
                 <button
-                  className="todo-modal-create"
+                  className="btn todo-modal-create"
                   onClick={() => addTodo(targetFolderId)}
                   disabled={!input.trim()}
                 >
@@ -1510,21 +1515,22 @@ function AppContent() {
         </div>
       )}
 
+      <div className="workspace">
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="folders-section">
+        <div className="folders-section" ref={foldersSectionRef}>
           {sortedFolders.length === 0 ? (
             <div className="empty-folders-screen">
               <div className="empty-folders-content">
                 <div className="empty-folders-icon">
-                  <Icon icon="mdi:folder-plus-outline" width="60" height="60" />
+                  <Icon icon="mdi:folder-plus-outline" width="32" height="32" />
                 </div>
-                <h2 className="empty-folders-title">No Folders Yet</h2>
+                <h2 className="empty-folders-title">Add your first divider</h2>
                 <p className="empty-folders-description">
-                  Create your first folder to start organizing your tasks
+                  Folders work like the coloured tabs in a planner. Make one, then add tasks under it.
                 </p>
-                <button className="empty-folders-create-btn" onClick={() => setShowFolderPopup(true)}>
+                <button className="btn empty-folders-create-btn" onClick={() => setShowFolderPopup(true)}>
                   <Icon icon="mdi:plus" width="18" height="18" />
-                  Create Your First Folder
+                  Create folder
                 </button>
               </div>
             </div>
@@ -1540,6 +1546,7 @@ function AppContent() {
                           <div ref={provided.innerRef} {...provided.draggableProps} className="folder-draggable-wrapper">
                             <FolderGroup
                               folder={folder}
+                              hueIndex={index}
                               todos={folderTodos}
                               onToggleCollapse={toggleFolderCollapse}
                               onRenameFolder={renameFolder}
@@ -1570,13 +1577,16 @@ function AppContent() {
                                         ))}
                                         {provided.placeholder}
                                         {/* Add button row ... */}
-                                        <div className="folder-add-todo-row" onClick={(e) => {
-                                          e.stopPropagation();
-                                          setTargetFolderId(folderId);
-                                          setShowTodoModal(true);
-                                        }}>
-                                          +
-                                        </div>
+                                        <li>
+                                          <button type="button" className="folder-add-todo-row" onClick={(e) => {
+                                            e.stopPropagation();
+                                            setTargetFolderId(folderId);
+                                            setShowTodoModal(true);
+                                          }}>
+                                            <Icon icon="mdi:plus" width="16" height="16" />
+                                            <span>Add task</span>
+                                          </button>
+                                        </li>
                                       </ul>
                                     )}
                                   </Droppable>
@@ -1595,6 +1605,14 @@ function AppContent() {
           )}
         </div>
       </DragDropContext>
+      {sortedFolders.length > 0 && (
+        <TabRail
+          folders={sortedFolders}
+          counts={Object.fromEntries(sortedFolders.map(f => [f.id, (todosByFolder[f.id] || []).filter(t => !t.isArchived && !t.done).length]))}
+          scrollRoot={foldersSectionRef}
+        />
+      )}
+      </div>
 
     </div>
   );

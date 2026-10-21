@@ -5,6 +5,7 @@ import './FolderGroup.css';
 
 type FolderGroupProps = {
   folder: Folder;
+  hueIndex: number;
   todos: Todo[];
   onToggleCollapse: (folderId: string) => void;
   onRenameFolder: (folderId: string, newName: string) => void;
@@ -16,6 +17,7 @@ type FolderGroupProps = {
 
 export default function FolderGroup({
   folder,
+  hueIndex,
   todos,
   onToggleCollapse,
   onRenameFolder,
@@ -67,31 +69,26 @@ export default function FolderGroup({
   const totalCount = activeTodos.length;
 
   return (
-    <div className="folder-group">
+    <section
+      className={`folder-group ${folder.collapsed ? 'collapsed' : ''}`}
+      data-folder-id={folder.id}
+      style={{
+        '--tab': `var(--hue-${hueIndex % 7})`,
+        '--tab-ink': `var(--hue-${hueIndex % 7}-ink)`,
+      } as React.CSSProperties}
+    >
       <div 
         className={`folder-header ${dragHandleProps ? 'draggable' : ''}`}
         onClick={() => onToggleCollapse(folder.id)}
         {...(dragHandleProps || {})}
       >
-        <button 
+        <button
           className="folder-toggle"
           onMouseDown={(e) => e.stopPropagation()}
+          aria-label={folder.collapsed ? 'Expand folder' : 'Collapse folder'}
+          aria-expanded={!folder.collapsed}
         >
-          <svg 
-            width="12" 
-            height="12" 
-            viewBox="0 0 12 12" 
-            fill="none"
-            className={folder.collapsed ? 'collapsed' : ''}
-          >
-            <path 
-              d="M4.5 3L7.5 6L4.5 9" 
-              stroke="currentColor" 
-              strokeWidth="1.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Icon icon="mdi:chevron-down" width="18" height="18" />
         </button>
         {isRenaming ? (
           <input
@@ -111,7 +108,7 @@ export default function FolderGroup({
           />
         ) : (
           <>
-            <span 
+            <span
               className="folder-name"
               onDoubleClick={(e) => {
                 e.stopPropagation();
@@ -134,8 +131,9 @@ export default function FolderGroup({
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 title="Rename folder"
+                aria-label="Rename folder"
               >
-                <Icon icon="mdi:pencil" width="16" height="16" />
+                <Icon icon="mdi:pencil-outline" width="16" height="16" />
               </button>
               <button
                 className="folder-action-btn delete"
@@ -145,11 +143,12 @@ export default function FolderGroup({
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 title="Delete folder"
+                aria-label="Delete folder"
               >
-                <Icon icon="mdi:delete" width="16" height="16" />
+                <Icon icon="mdi:trash-can-outline" width="16" height="16" />
               </button>
             </div>
-            <span className="folder-count">
+            <span className="folder-count" title={`${completedCount} of ${totalCount} done`}>
               {completedCount}/{totalCount}
             </span>
           </>
@@ -160,7 +159,7 @@ export default function FolderGroup({
           {renderTodos(todos, folder.id)}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 

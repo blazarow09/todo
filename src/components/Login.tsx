@@ -115,9 +115,9 @@ export default function Login() {
           )}
 
           <button className="login-btn" type="submit" disabled={submitting}>
-            {mode === 'signin' && (submitting ? 'Signing in...' : 'Sign In')}
-            {mode === 'signup' && (submitting ? 'Creating account...' : 'Create Account')}
-            {mode === 'reset' && (submitting ? 'Sending email...' : 'Send Reset Email')}
+            {mode === 'signin' && (submitting ? 'Signing in…' : 'Sign in')}
+            {mode === 'signup' && (submitting ? 'Creating account…' : 'Create account')}
+            {mode === 'reset' && (submitting ? 'Sending email…' : 'Send reset email')}
           </button>
         </form>
 

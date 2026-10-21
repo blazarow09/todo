@@ -50,7 +50,8 @@ export default function FilterBar({
           onClick={onClearCompleted}
           title="Clear completed tasks"
         >
-          <Icon icon="mdi:delete-sweep" width="18" height="18" />
+          <Icon icon="mdi:broom" width="16" height="16" />
+          <span>Clear done</span>
         </button>
       )}
       <div className="filter-actions">
@@ -58,7 +59,7 @@ export default function FilterBar({
           <CustomSelect
             value={selectedLabel}
             options={[
-              { value: '', label: 'All Labels' },
+              { value: '', label: 'All labels' },
               ...labels.map(lbl => ({ value: lbl, label: lbl }))
             ]}
             onChange={onLabelChange}

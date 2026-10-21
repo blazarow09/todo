@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Icon } from '@iconify/react';
 import './DatePicker.css';
 
 type DatePickerProps = {
@@ -303,35 +304,24 @@ export default function DatePicker({
           onClick={() => setIsOpen(!isOpen)}
           type="button"
         >
-          <svg className="date-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M12 2H4C2.9 2 2 2.9 2 4v10c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM4 4h8v2H4V4zm8 10H4V8h8v6z"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              fill="none"
-            />
-          </svg>
+          <Icon icon="mdi:calendar-blank-outline" className="date-icon" width={16} />
           <span className={value ? '' : 'placeholder'}>{formatDisplayDate(value) || placeholder}</span>
         </button>
         {value && (
-          <button className="clear-date" onClick={(e) => { e.stopPropagation(); handleClear(); }} type="button">
-            ×
+          <button className="clear-date" onClick={(e) => { e.stopPropagation(); handleClear(); }} type="button" aria-label="Clear date">
+            <Icon icon="mdi:close" width={14} />
           </button>
         )}
       </div>
       {isOpen && (
         <div className={`date-picker-dropdown ${position === 'right' ? 'align-right' : ''}`} ref={dropdownRef}>
           <div className="calendar-header">
-            <button className="nav-button" onClick={() => navigateMonth('prev')} type="button">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                <path d="M7.5 9L4.5 6L7.5 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+            <button className="nav-button" onClick={() => navigateMonth('prev')} type="button" aria-label="Previous month">
+              <Icon icon="mdi:chevron-left" width={18} />
             </button>
             <div className="month-year">{monthName}</div>
-            <button className="nav-button" onClick={() => navigateMonth('next')} type="button">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                <path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+            <button className="nav-button" onClick={() => navigateMonth('next')} type="button" aria-label="Next month">
+              <Icon icon="mdi:chevron-right" width={18} />
             </button>
           </div>
           <div className="calendar-days-header">
@@ -360,7 +350,7 @@ export default function DatePicker({
             <div className="time-label">Time</div>
             <div className="time-controls">
               <div className="time-input-group">
-                <button className="time-arrow" onClick={incrementHours} type="button">▲</button>
+                <button className="time-arrow" onClick={incrementHours} type="button" aria-label="Hour up"><Icon icon="mdi:chevron-up" width={16} /></button>
                 <input
                   type="number"
                   className="time-input"
@@ -375,11 +365,11 @@ export default function DatePicker({
                   max="23"
                   step="1"
                 />
-                <button className="time-arrow" onClick={decrementHours} type="button">▼</button>
+                <button className="time-arrow" onClick={decrementHours} type="button" aria-label="Hour down"><Icon icon="mdi:chevron-down" width={16} /></button>
               </div>
               <span className="time-separator">:</span>
               <div className="time-input-group">
-                <button className="time-arrow" onClick={incrementMinutes} type="button">▲</button>
+                <button className="time-arrow" onClick={incrementMinutes} type="button" aria-label="Minute up"><Icon icon="mdi:chevron-up" width={16} /></button>
                 <input
                   type="number"
                   className="time-input"
@@ -394,7 +384,7 @@ export default function DatePicker({
                   max="59"
                   step="1"
                 />
-                <button className="time-arrow" onClick={decrementMinutes} type="button">▼</button>
+                <button className="time-arrow" onClick={decrementMinutes} type="button" aria-label="Minute down"><Icon icon="mdi:chevron-down" width={16} /></button>
               </div>
             </div>
           </div>

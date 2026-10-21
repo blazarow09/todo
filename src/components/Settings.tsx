@@ -116,7 +116,7 @@ export default function Settings({
         <div className="settings-header">
           <div className="header-title-group">
             {view === 'archived' && (
-              <button className="settings-back-btn" onClick={() => setView('settings')}>
+              <button className="settings-back-btn" onClick={() => setView('settings')} aria-label="Back">
                 <Icon icon="mdi:arrow-left" width="20" height="20" />
               </button>
             )}
@@ -127,12 +127,12 @@ export default function Settings({
               <button
                 className="clear-all-btn"
                 onClick={onClearArchived}
-                title="Clear all archived todos"
+                title="Delete every archived task"
               >
-                Clear All
+                Clear all
               </button>
             )}
-            <button className="settings-close" onClick={handleClose}>
+            <button className="settings-close" onClick={handleClose} aria-label="Close settings">
               <Icon icon="mdi:close" width="20" height="20" />
             </button>
           </div>
@@ -153,7 +153,7 @@ export default function Settings({
                   </button>
                 </div>
                 <div className="settings-item">
-                  <label>Background Color</label>
+                  <label>Background colour</label>
                   <div className="background-color-picker">
                     <input
                       type="color"
@@ -161,21 +161,21 @@ export default function Settings({
                       onChange={(e) => onBackgroundColorChange(e.target.value)}
                     />
                     {backgroundColor && (
-                      <button onClick={() => onBackgroundColorChange(null)} className="reset-color-btn" title="Reset Color">
+                      <button onClick={() => onBackgroundColorChange(null)} className="reset-color-btn" title="Reset colour" aria-label="Reset colour">
                         <Icon icon="mdi:refresh" width="16" height="16" />
                       </button>
                     )}
                   </div>
                 </div>
                 <div className="settings-item">
-                  <label>Background Image</label>
+                  <label>Background image</label>
                   <div className="background-image-controls">
                     <button onClick={handleSelectImage} className="select-image-btn">
-                      <Icon icon="mdi:image-plus" width="16" height="16" />
+                      <Icon icon="mdi:image-plus-outline" width="16" height="16" />
                       <span>Upload</span>
                     </button>
                     {backgroundImage && (
-                      <button onClick={() => onBackgroundImageChange(null)} className="remove-image-btn" title="Remove Image">
+                      <button onClick={() => onBackgroundImageChange(null)} className="remove-image-btn" title="Remove image" aria-label="Remove image">
                         <Icon icon="mdi:trash-can-outline" width="16" height="16" />
                       </button>
                     )}
@@ -186,7 +186,7 @@ export default function Settings({
                 )}
                 {(backgroundImage || backgroundColor) && (
                   <div className="settings-item slider-item">
-                    <label htmlFor="overlay-opacity">Content Overlay Opacity</label>
+                    <label htmlFor="overlay-opacity">Overlay strength</label>
                     <div className="overlay-opacity-control">
                       <input
                         type="range"
@@ -246,7 +246,7 @@ export default function Settings({
                         handleCreateFolder();
                       }
                     }}
-                    placeholder="Folder name..."
+                    placeholder="Folder name"
                     className="folder-input"
                   />
                   <button
@@ -254,7 +254,7 @@ export default function Settings({
                     onClick={handleCreateFolder}
                     disabled={!newFolderName.trim()}
                   >
-                    <Icon icon="mdi:folder-plus" width="18" height="18" />
+                    <Icon icon="mdi:folder-plus-outline" width="18" height="18" />
                     <span>Create</span>
                   </button>
                 </div>
@@ -262,7 +262,7 @@ export default function Settings({
                   <div className="folders-list">
                     {folders.map(folder => (
                       <div key={folder.id} className="folder-item">
-                        <Icon icon="mdi:folder" width="16" height="16" />
+                        <Icon icon="mdi:folder-outline" width="16" height="16" />
                         <span>{folder.name}</span>
                       </div>
                     ))}
@@ -274,16 +274,16 @@ export default function Settings({
                 <h4>Data</h4>
                 <div className="data-actions">
                   <button className="data-btn" onClick={() => setView('archived')}>
-                    <Icon icon="mdi:archive" width="20" height="20" />
+                    <Icon icon="mdi:archive-outline" width="18" height="18" />
                     <span>Archived ({archivedTodos.length})</span>
                   </button>
                   <button className="data-btn" onClick={onExport}>
-                    <Icon icon="mdi:export" width="20" height="20" />
-                    <span>Export JSON</span>
+                    <Icon icon="mdi:tray-arrow-up" width="18" height="18" />
+                    <span>Export</span>
                   </button>
                   <button className="data-btn" onClick={onImport}>
-                    <Icon icon="mdi:import" width="20" height="20" />
-                    <span>Import JSON</span>
+                    <Icon icon="mdi:tray-arrow-down" width="18" height="18" />
+                    <span>Import</span>
                   </button>
                 </div>
               </div>
@@ -293,7 +293,7 @@ export default function Settings({
                 <div className="stats-grid">
                   <div className="stat-card">
                     <div className="stat-value">{total}</div>
-                    <div className="stat-label">Total Tasks</div>
+                    <div className="stat-label">Total</div>
                   </div>
                   <div className="stat-card">
                     <div className="stat-value">{active}</div>
@@ -301,16 +301,16 @@ export default function Settings({
                   </div>
                   <div className="stat-card">
                     <div className="stat-value">{completed}</div>
-                    <div className="stat-label">Completed</div>
+                    <div className="stat-label">Done</div>
                   </div>
                   <div className="stat-card">
                     <div className="stat-value">{completionRate}%</div>
-                    <div className="stat-label">Complete</div>
+                    <div className="stat-label">Done rate</div>
                   </div>
                   {highPriority > 0 && (
                     <div className="stat-card priority">
                       <div className="stat-value">{highPriority}</div>
-                      <div className="stat-label">High Priority</div>
+                      <div className="stat-label">High priority</div>
                     </div>
                   )}
                   {overdue > 0 && (
@@ -327,31 +327,16 @@ export default function Settings({
               </div>
 
               {onLogout && (
-                <div className="settings-section" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                <div className="settings-section logout-section">
                   <button
                     className="logout-btn"
                     onClick={() => {
                       onLogout();
                       onClose();
                     }}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      backgroundColor: 'var(--danger-color, #e74c3c)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                    }}
                   >
                     <Icon icon="mdi:logout" width="18" height="18" />
-                    <span>Sign Out</span>
+                    <span>Sign out</span>
                   </button>
                 </div>
               )}
@@ -361,7 +346,7 @@ export default function Settings({
               {archivedTodos.length === 0 ? (
                 <div className="empty-archived">
                   <Icon icon="mdi:archive-outline" width="48" height="48" />
-                  <p>No archived todos</p>
+                  <p>Nothing archived yet</p>
                 </div>
               ) : (
                 <div className="archived-list">
@@ -372,11 +357,11 @@ export default function Settings({
                         <span className="archived-date">Created: {new Date(todo.createdAt).toLocaleDateString()}</span>
                       </div>
                       <div className="archived-actions">
-                        <button onClick={() => onRestore(todo.id)} title="Restore" className="restore-btn">
+                        <button onClick={() => onRestore(todo.id)} title="Restore" aria-label="Restore" className="restore-btn">
                           <Icon icon="mdi:restore" width="18" height="18" />
                         </button>
-                        <button onClick={() => onDelete(todo.id)} title="Delete Permanently" className="delete-permanent-btn">
-                          <Icon icon="mdi:delete-forever" width="18" height="18" />
+                        <button onClick={() => onDelete(todo.id)} title="Delete permanently" aria-label="Delete permanently" className="delete-permanent-btn">
+                          <Icon icon="mdi:trash-can-outline" width="18" height="18" />
                         </button>
                       </div>
                     </div>

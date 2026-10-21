@@ -1,3 +1,4 @@
+import { Icon } from '@iconify/react';
 import { useState, useRef, useEffect } from 'react';
 import './CustomSelect.css';
 
@@ -48,21 +49,7 @@ export default function CustomSelect({
         disabled={disabled}
       >
         <span>{selectedOption?.label || placeholder}</span>
-        <svg 
-          className="select-arrow" 
-          width="12" 
-          height="12" 
-          viewBox="0 0 12 12" 
-          fill="none"
-        >
-          <path 
-            d="M3 4.5L6 7.5L9 4.5" 
-            stroke="currentColor" 
-            strokeWidth="1.5" 
-            strokeLinecap="round" 
-            strokeLinejoin="round"
-          />
-        </svg>
+        <Icon icon="mdi:chevron-down" width="16" height="16" className="select-arrow" />
       </button>
       {isOpen && (
         <div className="select-dropdown">
