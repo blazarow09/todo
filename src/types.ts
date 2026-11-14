@@ -9,6 +9,7 @@ export type Todo = {
   notes?: string;
   attachments?: Attachment[];
   checklist?: ChecklistItem[];
+  checklistCollapsed?: boolean;
   isArchived?: boolean;
   createdAt: number;
   order?: number; // Order within folder for drag-and-drop

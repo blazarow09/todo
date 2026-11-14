@@ -8,12 +8,13 @@ type TodoItemProps = {
   todo: Todo;
   onToggle: (id: number) => void;
   onUpdate: (id: number, updates: Partial<Todo>) => void;
+  onToggleChecklistCollapse: (id: number) => void;
   onDelete: (id: number) => void;
   onEdit?: (todo: Todo) => void;
   searchQuery?: string;
 };
 
-export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, searchQuery }: TodoItemProps) {
+export default function TodoItem({ todo, onToggle, onUpdate, onToggleChecklistCollapse, onDelete, onEdit, searchQuery }: TodoItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(todo.text);
   const [showNotes, setShowNotes] = useState(false);
@@ -395,10 +396,19 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
         </div>
         <div className="todo-meta">
           {checklist.length > 0 && (
-            <span className={`checklist-progress ${checklistDoneCount === checklist.length ? 'complete' : ''}`}>
+            <button
+              type="button"
+              className={`checklist-progress ${checklistDoneCount === checklist.length ? 'complete' : ''}`}
+              onClick={() => onToggleChecklistCollapse(todo.id)}
+              onDoubleClick={(e) => e.stopPropagation()}
+              title={todo.checklistCollapsed ? 'Show checklist' : 'Hide checklist'}
+              aria-label={`Checklist ${checklistDoneCount} of ${checklist.length} done, ${todo.checklistCollapsed ? 'show' : 'hide'} items`}
+              aria-expanded={!todo.checklistCollapsed}
+            >
               <Icon icon="mdi:checkbox-marked-outline" width="12" height="12" />
               {checklistDoneCount}/{checklist.length}
-            </span>
+              <Icon className="checklist-chevron" icon="mdi:chevron-down" width="14" height="14" />
+            </button>
           )}
           {todo.label && (
             <span className="label-badge">
@@ -452,7 +462,7 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
         {showNotes && todo.notes && (
           <div className="notes-display">{todo.notes}</div>
         )}
-        {checklist.length > 0 && (
+        {checklist.length > 0 && !todo.checklistCollapsed && (
           // Stop double-clicks from opening the inline title editor while ticking items quickly
           <ul className="checklist" onDoubleClick={(e) => e.stopPropagation()}>
             {checklist.map(item => (

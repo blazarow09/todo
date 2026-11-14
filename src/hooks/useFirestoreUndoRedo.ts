@@ -58,9 +58,11 @@ export function useFirestoreUndoRedo(userId: string | undefined) {
           break;
         case 'update':
         case 'toggle':
-          // Inverse of update is update with previous data
+          // Inverse of update is update with previous data.
+          // Leave checklistCollapsed alone: it is view state, so undo must not expand/collapse.
           if (action.data) {
-            await setDoc(docRef, action.data, { merge: true });
+            const { checklistCollapsed: _checklistCollapsed, ...previousData } = action.data;
+            await setDoc(docRef, previousData, { merge: true });
           }
           break;
       }

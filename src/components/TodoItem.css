@@ -260,13 +260,35 @@
 
 /* Checklist */
 .checklist-progress {
+  padding-right: 3px;
   font-family: var(--mono);
   color: var(--ink-2);
   border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color var(--t-fast) ease, color var(--t-fast) ease;
+}
+
+.checklist-progress:hover {
+  border-color: var(--ink-3);
+  color: var(--ink);
+}
+
+.checklist-progress:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
 }
 
 .checklist-progress.complete {
   color: var(--ink-3);
+}
+
+.checklist-chevron {
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+.checklist-progress[aria-expanded="false"] .checklist-chevron {
+  transform: rotate(-90deg);
 }
 
 .checklist {

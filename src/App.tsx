@@ -453,6 +453,18 @@ function AppContent() {
     }
   }, [todos, firestoreUpdateTodo, trackAction]);
 
+  // View state only - not tracked, so Ctrl+Z skips it
+  const toggleChecklistCollapse = useCallback(async (id: number) => {
+    const todo = todos.find(t => t.id === id);
+    if (!todo) return;
+    setPendingFirebaseOps(prev => prev + 1);
+    try {
+      await firestoreUpdateTodo(String(id), { checklistCollapsed: !todo.checklistCollapsed });
+    } finally {
+      setPendingFirebaseOps(prev => Math.max(0, prev - 1));
+    }
+  }, [todos, firestoreUpdateTodo]);
+
   const toggleTodo = useCallback(async (id: number) => {
     setPendingFirebaseOps(prev => prev + 1);
     try {
@@ -690,6 +702,7 @@ function AppContent() {
                 ...(todoData.notes && { notes: String(todoData.notes) }),
                 ...(todoData.attachments && Array.isArray(todoData.attachments) && { attachments: sanitizeAttachmentsForFirestore(todoData.attachments as Attachment[]) }),
                 ...(Array.isArray(todoData.checklist) && { checklist: sanitizeImportedChecklist(todoData.checklist) }),
+                ...(todoData.checklistCollapsed !== undefined && { checklistCollapsed: Boolean(todoData.checklistCollapsed) }),
                 isArchived: Boolean(todoData.isArchived ?? false),
                 createdAt: todoData.createdAt ? (typeof todoData.createdAt === 'number' ? todoData.createdAt : new Date(todoData.createdAt).getTime()) : Date.now(),
                 ...(todoData.notificationEnabled !== undefined && { notificationEnabled: Boolean(todoData.notificationEnabled) }),
@@ -1592,6 +1605,7 @@ function AppContent() {
                                                   todo={todo}
                                                   onToggle={toggleTodo}
                                                   onUpdate={updateTodo}
+                                                  onToggleChecklistCollapse={toggleChecklistCollapse}
                                                   onDelete={archiveTodo}
                                                   onEdit={handleEditTodo}
                                                   searchQuery={searchQuery}
