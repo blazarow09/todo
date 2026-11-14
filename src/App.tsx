@@ -3,7 +3,7 @@ import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, D
 import { Icon } from "@iconify/react";
 import "./App.css";
 import "./themes.css";
-import { Todo, FilterType, Theme, Attachment } from "./types";
+import { Todo, FilterType, Theme, Attachment, ChecklistItem } from "./types";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { scheduleAllNotifications } from "./utils/notifications";
 import TodoItem from "./components/TodoItem";
@@ -15,6 +15,7 @@ import DatePicker from "./components/DatePicker";
 import LabelInput from "./components/LabelInput";
 import FolderGroup from "./components/FolderGroup";
 import TabRail from "./components/TabRail";
+import ChecklistEditor from "./components/ChecklistEditor";
 
 // Firebase Imports
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -46,6 +47,17 @@ function sanitizeAttachmentsForFirestore(attachments: Attachment[]): Attachment[
     url: att.url,
     name: att.name,
   }) as Attachment);
+}
+
+// Imported checklists come from untrusted JSON - keep only valid items with known fields
+function sanitizeImportedChecklist(items: unknown[]): ChecklistItem[] {
+  return items
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && typeof (item as ChecklistItem).text === 'string')
+    .map((item) => ({
+      id: typeof item.id === 'string' && item.id ? item.id : crypto.randomUUID(),
+      text: String(item.text),
+      done: Boolean(item.done),
+    }));
 }
 
 const THEME_KEY = "todo_theme";
@@ -129,6 +141,7 @@ function AppContent() {
   const [label, setLabel] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [isDragOverModal, setIsDragOverModal] = useState(false);
   const [filter, setFilter] = useState<FilterType>('active');
   const [selectedLabel, setSelectedLabel] = useState("");
@@ -367,6 +380,8 @@ function AppContent() {
           folderId: folderToUse,
           ...(dueDate && { dueDate }),
           ...(attachments.length > 0 && { attachments: sanitizeAttachmentsForFirestore(attachments) }),
+          // Always written so removing every item clears the stored checklist
+          checklist,
           ...(notificationEnabled && { notificationEnabled }),
           ...(notificationEnabled && notificationType && { notificationType }),
           ...(notificationEnabled && notificationType !== 'at' && notificationDuration && { notificationDuration }),
@@ -395,6 +410,7 @@ function AppContent() {
           order: newOrder,
           ...(dueDate && { dueDate }),
           ...(attachments.length > 0 && { attachments: sanitizeAttachmentsForFirestore(attachments) }),
+          ...(checklist.length > 0 && { checklist }),
           ...(notificationEnabled && { notificationEnabled }),
           ...(notificationEnabled && notificationType && { notificationType }),
           ...(notificationEnabled && notificationType !== 'at' && notificationDuration && { notificationDuration }),
@@ -413,6 +429,7 @@ function AppContent() {
       setLabel("");
       setDueDate("");
       setAttachments([]);
+      setChecklist([]);
       setPriority('medium');
       setNotificationEnabled(false);
       setShowTodoModal(false);
@@ -420,7 +437,7 @@ function AppContent() {
     } finally {
       setPendingFirebaseOps(prev => Math.max(0, prev - 1));
     }
-  }, [input, priority, label, dueDate, attachments, selectedFolderId, editingTodo, notificationEnabled, notificationType, notificationDuration, firestoreAddTodo, firestoreUpdateTodo, trackAction, todos]);
+  }, [input, priority, label, dueDate, attachments, checklist, selectedFolderId, editingTodo, notificationEnabled, notificationType, notificationDuration, firestoreAddTodo, firestoreUpdateTodo, trackAction, todos]);
 
   const updateTodo = useCallback(async (id: number, updates: Partial<Todo>) => {
     setPendingFirebaseOps(prev => prev + 1);
@@ -672,6 +689,7 @@ function AppContent() {
                 ...(todoData.dueDate && { dueDate: String(todoData.dueDate) }),
                 ...(todoData.notes && { notes: String(todoData.notes) }),
                 ...(todoData.attachments && Array.isArray(todoData.attachments) && { attachments: sanitizeAttachmentsForFirestore(todoData.attachments as Attachment[]) }),
+                ...(Array.isArray(todoData.checklist) && { checklist: sanitizeImportedChecklist(todoData.checklist) }),
                 isArchived: Boolean(todoData.isArchived ?? false),
                 createdAt: todoData.createdAt ? (typeof todoData.createdAt === 'number' ? todoData.createdAt : new Date(todoData.createdAt).getTime()) : Date.now(),
                 ...(todoData.notificationEnabled !== undefined && { notificationEnabled: Boolean(todoData.notificationEnabled) }),
@@ -804,6 +822,7 @@ function AppContent() {
     setLabel(todo.label || '');
     setDueDate(todo.dueDate || '');
     setAttachments(todo.attachments || []);
+    setChecklist(todo.checklist || []);
     setTargetFolderId(todo.folderId || null);
     setNotificationEnabled(todo.notificationEnabled || false);
     setNotificationType(todo.notificationType || 'before');
@@ -819,6 +838,7 @@ function AppContent() {
     setLabel("");
     setDueDate("");
     setAttachments([]);
+    setChecklist([]);
     setTargetFolderId(null);
     setNotificationEnabled(false);
     setNotificationType('before');
@@ -1296,6 +1316,7 @@ function AppContent() {
             setLabel("");
             setDueDate("");
             setAttachments([]);
+            setChecklist([]);
             setPriority('medium');
             setNotificationEnabled(false);
             setShowTodoModal(true);
@@ -1451,6 +1472,10 @@ function AppContent() {
                     </div>
                   </div>
                 </div>
+              </div>
+              <div className="input-option-group">
+                <label className="input-option-label">Checklist</label>
+                <ChecklistEditor items={checklist} onChange={setChecklist} />
               </div>
               <div
                 className={`todo-modal-attachments ${isDragOverModal ? 'drag-over' : ''}`}

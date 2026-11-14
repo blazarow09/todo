@@ -142,6 +142,16 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
     });
   };
 
+  const handleToggleChecklistItem = (itemId: string) => {
+    const currentChecklist = todo.checklist || [];
+    onUpdate(todo.id, {
+      checklist: currentChecklist.map(item => (item.id === itemId ? { ...item, done: !item.done } : item))
+    });
+  };
+
+  const checklist = todo.checklist || [];
+  const checklistDoneCount = checklist.filter(item => item.done).length;
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       handleSave();
@@ -384,6 +394,12 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
           </div>
         </div>
         <div className="todo-meta">
+          {checklist.length > 0 && (
+            <span className={`checklist-progress ${checklistDoneCount === checklist.length ? 'complete' : ''}`}>
+              <Icon icon="mdi:checkbox-marked-outline" width="12" height="12" />
+              {checklistDoneCount}/{checklist.length}
+            </span>
+          )}
           {todo.label && (
             <span className="label-badge">
               <Icon icon="mdi:tag-outline" width="12" height="12" />
@@ -435,6 +451,27 @@ export default function TodoItem({ todo, onToggle, onUpdate, onDelete, onEdit, s
         </div>
         {showNotes && todo.notes && (
           <div className="notes-display">{todo.notes}</div>
+        )}
+        {checklist.length > 0 && (
+          // Stop double-clicks from opening the inline title editor while ticking items quickly
+          <ul className="checklist" onDoubleClick={(e) => e.stopPropagation()}>
+            {checklist.map(item => (
+              <li key={item.id}>
+                <label className={`checklist-item ${item.done ? 'done' : ''}`}>
+                  <input
+                    type="checkbox"
+                    className="checklist-checkbox"
+                    checked={item.done}
+                    onChange={() => handleToggleChecklistItem(item.id)}
+                  />
+                  <span className="checklist-checkmark">
+                    <Icon icon="mdi:check-bold" width="10" height="10" />
+                  </span>
+                  <span className="checklist-text">{parseTextWithLinks(item.text, searchQuery)}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
         )}
         {todo.attachments && todo.attachments.length > 0 && (
           <div className="attachments-grid">

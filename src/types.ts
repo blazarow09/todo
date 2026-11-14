@@ -8,6 +8,7 @@ export type Todo = {
   dueDate?: string;
   notes?: string;
   attachments?: Attachment[];
+  checklist?: ChecklistItem[];
   isArchived?: boolean;
   createdAt: number;
   order?: number; // Order within folder for drag-and-drop
@@ -21,6 +22,12 @@ export type Attachment = {
   type: 'image';
   url: string;
   name?: string;
+};
+
+export type ChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
 };
 
 export type Folder = {
